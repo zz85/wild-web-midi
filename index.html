@@ -108,24 +108,25 @@
       <progress value="0" max="100" id="progress" hidden=1></progress>
     </div>
 
-    <button onclick="openFile()">Open Midi and Convert!</button>
+    <br/>
+    <div>Play Midi Samples:<br/>
 
-    <div>Midi Samples:<br/>
-
-    <a href="#" onclick="return convertMidi('TOCATTA.MID');">Tocatta</a>
-    <a href="#" onclick="return convertMidi('ENTERTNR.MID');">Entertainer</a>
-    <a href="#" onclick="return convertMidi('STRIVING.MID');">Striving</a> (<a href="https://archive.org/details/GravisUltrasoundMidiFiles">source</a>)
+    <!-- &#x2B24; #8226 -->
+    &#x25CF; <a href="#" onclick="return convertMidi('TOCATTA.MID');">Tocatta</a>
+    &#x25CF; <a href="#" onclick="return convertMidi('ENTERTNR.MID');">Entertainer</a>
+    &#x25CF; <a href="#" onclick="return convertMidi('STRIVING.MID');">Striving</a> (<a href="https://archive.org/details/GravisUltrasoundMidiFiles">source</a>)
     <br/>
 
-    <a href="#" onclick="return convertMidi('Super_Mario_Bros_-_Overworld_Theme_by_BlueSCD.mid');">Super Mario Bros Overworld Theme</a>
+    &#x25CF; <a href="#" onclick="return convertMidi('Super_Mario_Bros_-_Overworld_Theme_by_BlueSCD.mid');">Super Mario Bros Overworld Theme</a>
     (<a href="http://www.gamemusicthemes.com/sheetmusic/nintendo/supermariobros/overworldtheme/">source</a>)
     <br/>
 
-    <a href="#" onclick="return convertMidi('prelude.mid');">FF9 Prelude</a>
-    <a href="#" onclick="return convertMidi('melodies_of_life.mid');">FF9 Melodies of life</a> (<a href="http://www.midishrine.com/index.php?id=87">source</a>)
-
-
+    &#x25CF; <a href="#" onclick="return convertMidi('prelude.mid');">FF9 Prelude</a>
+    &#x25CF; <a href="#" onclick="return convertMidi('melodies_of_life.mid');">FF9 Melodies of life</a> (<a href="http://www.midishrine.com/index.php?id=87">source</a>)
     </div>
+
+    <button onclick="openFile()">Open Midi and Convert!</button>
+
     <div id="completed"></div>
 
     <textarea id="output" rows="8"></textarea>
@@ -140,7 +141,6 @@
 
       var input, openCallback;
       var midiName = ''
-
 
       function convertMidi(name) {
         midiName = name;
