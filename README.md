@@ -17,14 +17,14 @@ node make
 ```
 
 Updates
-
+2 July 2015 - update index and added sample midi files
 1 July 2015 - built for the browser. allow wav playback and download after conversion.
 30 June 2015 - compiled to JS with emscripten to allow running in node.js and browser
 
 TODO
-- allow opening of midis from browser
-- saving of generated wav from browser
-- wav playback from browser
+- allow opening of midis from browser (DONE)
+- saving of generated wav from browser (DONE)
+- wav playback from browser (DONE)
 - stream audio to Web Audio API
 - pass output through lame or other MP3 encoders for download
 - allow custom patches

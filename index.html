@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Wild Web Midi - Midi to Wave convertor in JS</title>
+    <title>Wild Web Midi - Quality Midi to Wave convertor in JS</title>
     <style>
       body {
         font-family: arial;
@@ -89,15 +89,16 @@
         font-size: 28px;
         padding: 10px;
         margin: 10px;
+        cursor: pointer;
       }
     </style>
   </head>
   <body>
-    <h2>Wild Web Midi - convert midi to quality wav in your browser.</h2>
+    <h2>Wild Web Midi - quality midi conversion in your browser.</h2>
 
     <h3>Check out <a href="https://github.com/zz85/wild-web-midi">project on github</a> | Follow <a href="https://twitter.com/blurspline">@blurspline</a> for updates</h3>
 
-    <h4>Powered by <a href="https://www.mindwerks.net/projects/wildmidi/">wildmidi</a>, <a href="https://kripken.github.io/emscripten-site">emscripten</a>, and <a href="freepats.zenvoid.org/freepats/">freepats</a>.</h4>
+    <h4>Powered by <a href="https://www.mindwerks.net/projects/wildmidi/">wildmidi</a>, <a href="https://kripken.github.io/emscripten-site">emscripten</a>, and <a href="http://freepats.zenvoid.org/freepats/">Gravis Ultrasound patches</a>.</h4>
 
     <div class="spinner" id='spinner'></div>
 
@@ -107,10 +108,29 @@
       <progress value="0" max="100" id="progress" hidden=1></progress>
     </div>
 
-    <button onclick="openFile()">Open Midi</button> <button onclick="convert()">Convert to Wave</button>
+    <button onclick="openFile()">Open Midi and Convert!</button>
+
+    <div>Midi Samples:<br/>
+
+    <a href="#" onclick="return convertMidi('TOCATTA.MID');">Tocatta</a>
+    <a href="#" onclick="return convertMidi('ENTERTNR.MID');">Entertainer</a>
+    <a href="#" onclick="return convertMidi('STRIVING.MID');">Striving</a> (<a href="https://archive.org/details/GravisUltrasoundMidiFiles">source</a>)
+    <br/>
+
+    <a href="#" onclick="return convertMidi('Super_Mario_Bros_-_Overworld_Theme_by_BlueSCD.mid');">Super Mario Bros Overworld Theme</a>
+    (<a href="http://www.gamemusicthemes.com/sheetmusic/nintendo/supermariobros/overworldtheme/">source</a>)
+    <br/>
+
+    <a href="#" onclick="return convertMidi('prelude.mid');">FF9 Prelude</a>
+    <a href="#" onclick="return convertMidi('melodies_of_life.mid');">FF9 Melodies of life</a> (<a href="http://www.midishrine.com/index.php?id=87">source</a>)
+
+
+    </div>
     <div id="completed"></div>
 
     <textarea id="output" rows="8"></textarea>
+
+    <i>Warning: converting huge midis can cause your browser to run out of memory. Some midis may have missing tracks due to missing instrument patches</i>
 
     <script type='text/javascript'>
       var statusElement = document.getElementById('status');
@@ -119,7 +139,14 @@
       var completedElement = document.getElementById('completed');
 
       var input, openCallback;
-      var midiName = 'ff8waltzthemoon.mid'
+      var midiName = ''
+
+
+      function convertMidi(name) {
+        midiName = name;
+        convert();
+        return false;
+      }
 
       // File Open code adapted from "mrdoobapproves" project
       function openFile() {
@@ -127,6 +154,7 @@
           midiName = file.name;
           console.log('open ', midiName);
           FS.writeFile('/freepats/' + midiName, data, { encoding: 'binary' });
+          setTimeout(convert, 100);
         }, document.body);
       }
 
@@ -183,7 +211,7 @@
 
       function runConversion() {
         var sourceMidi = 'freepats/' + midiName;
-        var targetWav = midiName.replace(/\.mid?i$/, '.wav');
+        var targetWav = midiName.replace(/\.midi?$/i, '.wav');
         var targetPath = sourceMidi + '.wav';
 
         // console.time('conversion');
@@ -202,9 +230,10 @@
         var audio = document.createElement('audio');
         audio.src = objectURL;
         audio.controls = true;
+        audio.autoplay = true;
 
         completedElement.appendChild(audio);
-        completedElement.appendChild(document.createTextNode(' (' + (conversion_time / 1000 | 0) + 's) '));
+        completedElement.appendChild(document.createTextNode(' Took ' + (conversion_time / 1000 | 0) + 's. '));
 
         var link = document.createElement('a');
         link.innerHTML = 'Download ' + targetWav;
@@ -217,8 +246,6 @@
         completedElement.appendChild(document.createElement('br'));
 
       }
-
-      // Module["onExit"]
 
       var Module = {
         // arguments: '-c /freepats/freepats.cfg -o /freepats/hoho.wav /freepats/alb_se5.mid'.split(' '),
