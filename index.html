@@ -107,10 +107,8 @@
       <progress value="0" max="100" id="progress" hidden=1></progress>
     </div>
 
-    <button onclick="runConversion()">Convert to Wave</button>
-
-
-    <!-- <div class="spinner" id='spinner2'></div> -->
+    <button onclick="convert()">Convert to Wave</button>
+    <div id="completed"></div>
 
     <textarea id="output" rows="8"></textarea>
 
@@ -118,14 +116,53 @@
       var statusElement = document.getElementById('status');
       var progressElement = document.getElementById('progress');
       var spinnerElement = document.getElementById('spinner');
+      var completedElement = document.getElementById('completed');
+
+      function convert() {
+        spinnerElement.style.display = 'inline-block';
+        Module.setStatus('Converting...');
+        // run in the next tick so UI can update.
+        setTimeout(runConversion);
+
+      }
 
       function runConversion() {
-        console.time('conversion');
-
         var targetWavFile = 'freepats/hoho.wav';
-        var status = wildwebmidi('freepats/ff8waltzthemoon.mid', targetWavFile);
 
+        console.time('conversion');
+        var status = wildwebmidi('freepats/ff8waltzthemoon.mid', targetWavFile);
         console.timeEnd('conversion');
+
+        Module.setStatus('');
+
+        var wave = FS.readFile(targetWavFile);
+        var blob = new Blob( [ wave ], { type: 'audio/wave' } );
+        var objectURL = URL.createObjectURL( blob );
+
+        var audio = document.createElement('audio');
+        audio.src = objectURL;
+        audio.controls = true;
+
+        completedElement.appendChild(audio);
+
+        var link = document.createElement('a');
+        link.innerHTML = 'Download';
+        link.href = objectURL;
+        link.download = 'hello.wav';
+        link.target = '_blank';
+
+        completedElement.appendChild(link);
+
+        completedElement.appendChild(document.createElement('br'));
+
+        // Auto downloads
+        // var event = document.createEvent("MouseEvents");
+        // event.initMouseEvent(
+        //   "click", true, false, window, 0, 0, 0, 0, 0
+        //   , false, false, false, false, 0, null
+        // );
+        // link.dispatchEvent(event);
+
       }
 
       // Module["onExit"]

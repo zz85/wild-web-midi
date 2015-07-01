@@ -18,6 +18,7 @@ node make
 
 Updates
 
+1 July 2015 - built for the browser. allow wav playback and download after conversion.
 30 June 2015 - compiled to JS with emscripten to allow running in node.js and browser
 
 TODO
