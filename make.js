@@ -49,7 +49,7 @@ if (!NODEJS) FLAGS += ' --preload-file freepats ';
 //  -s DEMANGLE_SUPPORT=1
 // FLAGS += ' -s EMTERPRETIFY=1 '
 
-// FLAGS += ' --pre-js pre.js --post-js post.js '
+FLAGS += ' --pre-js pre.js --post-js post.js '
 
 var defines = Object.keys(DEFINES).map(function(d) {
 	return '-D' + d + '=' + DEFINES[d];
