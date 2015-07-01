@@ -3,6 +3,8 @@
  * @author zz85 github.com/zz85
  */
 
+var NODEJS = false;
+
 var EMCC = '/usr/lib/emsdk_portable/emscripten/1.30.0/emcc';
 
 var OPTIMIZE_FLAGS = ' -O2';
@@ -34,10 +36,6 @@ includes.push('src/wildwebmidi.c');
 
 console.log('Includes: ' + includes);
 
-var fs = require('fs');
-
-var NODEJS = false;
-
 var DEFINES = {};
 if (NODEJS) DEFINES.NODEJS = 1;
 
@@ -59,9 +57,8 @@ var defines = Object.keys(DEFINES).map(function(d) {
 
 var compile_all = EMCC + ' -Isrc -Iwildmidi/include  '
 	+ includes.join(' ')
-	+ FLAGS + ' ' + defines + ' -o wildwebmidi.js' ;
+	+ FLAGS + ' ' + defines + ' -o wildwebmidi.js -s EXPORTED_FUNCTIONS="[\'_wildwebmidi\']"' ;
 
-// -s EXPORTED_FUNCTIONS="[\'_wildmidi_wav\']"
 
 var
 	exec = require('child_process').exec,

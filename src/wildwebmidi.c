@@ -226,13 +226,12 @@ static int write_midi_output(void *output_data, int output_size) {
  Wav Output Functions
  */
 
-static char wav_file[1024];
 static uint32_t wav_size;
 
 static int write_wav_output(int8_t *output_data, int output_size);
 static void close_wav_output(void);
 
-static int open_wav_output(void) {
+static int open_wav_output(char* wav_file) {
     uint8_t wav_hdr[] = {
         0x52, 0x49, 0x46, 0x46, /* "RIFF"  */
         0x00, 0x00, 0x00, 0x00, /* riffsize: pcm size + 36 (filled when closing.) */
@@ -340,62 +339,6 @@ end:    printf("\n");
 
 /* no audio output driver compiled in: */
 
-#define open_audio_output open_noaudio_output
-static int open_noaudio_output(void) {
-    return -1;
-}
-
-static struct option const long_options[] = {
-    { "version", 0, 0, 'v' },
-    { "help", 0, 0, 'h' },
-    { "rate", 1, 0, 'r' },
-    { "mastervol", 1, 0, 'm' },
-    { "config", 1, 0, 'c' },
-    { "wavout", 1, 0, 'o' },
-    { "tomidi", 1, 0, 'x' },
-    { "convert", 1, 0, 'g' },
-    { "frequency", 1, 0, 'f' },
-    { "log_vol", 0, 0, 'l' },
-    { "reverb", 0, 0, 'b' },
-    { "test_midi", 0, 0, 't' },
-    { "test_bank", 1, 0, 'k' },
-    { "test_patch", 1, 0, 'p' },
-    { "enhanced", 0, 0, 'e' },
-#if defined(AUDIODRV_OSS) || defined(AUDIODRV_ALSA)
-    { "device", 1, 0, 'd' },
-#endif
-    { "roundtempo", 0, 0, 'n' },
-    { "skipsilentstart", 0, 0, 's' },
-    { "textaslyric", 0, 0, 'a' },
-    { NULL, 0, NULL, 0 }
-};
-
-static void do_help(void) {
-    printf("  -v    --version     Display version info and exit\n");
-    printf("  -h    --help        Display this help and exit\n");
-#if defined(AUDIODRV_OSS) || defined(AUDIODRV_ALSA)
-    printf("  -d D  --device=D    Use device D for audio output instead of default\n");
-#endif
-    printf("MIDI Options:\n");
-    printf("  -n    --roundtempo  Round tempo to nearest whole number\n");
-    printf("  -s    --skipsilentstart Skips any silence at the start of playback\n");
-    printf("  -t    --test_midi   Listen to test MIDI\n");
-    printf("Non-MIDI Options:\n");
-    printf("  -x    --tomidi      Convert file to midi and save to file\n");
-    printf("  -g    --convert     Convert XMI: 0 - No Conversion (default)\n");
-    printf("                                   1 - MT32 to GM\n");
-    printf("                                   2 - MT32 to GS\n");
-    printf("  -f F  --frequency=F Use frequency F Hz for playback (MUS)\n");
-    printf("Software Wavetable Options:\n");
-    printf("  -o W  --wavout=W    Save output to W in 16bit stereo format wav file\n");
-    printf("  -l    --log_vol     Use log volume adjustments\n");
-    printf("  -r N  --rate=N      Set sample rate to N samples per second (Hz)\n");
-    printf("  -c P  --config=P    Point to your wildmidi.cfg config file name/path\n");
-    printf("                      defaults to: %s\n", WILDMIDI_CFG);
-    printf("  -m V  --mastervol=V Set the master volume (0..127), default is 100\n");
-    printf("  -b    --reverb      Enable final output reverb engine\n");
-}
-
 static void do_version(void) {
     printf("\nWildMidi %s Open Source Midi Sequencer\n", PACKAGE_VERSION);
     printf("Copyright (C) WildMIDI Developers 2001-2015\n\n");
@@ -407,13 +350,9 @@ static void do_version(void) {
     printf("WildMIDI homepage is at %s\n\n", PACKAGE_URL);
 }
 
-static void do_syntax(void) {
-    printf("Usage: wildmidi [options] filename.mid\n\n");
-}
+static char *config_file;
 
-static char config_file[1024];
-
-int main(int argc, char **argv) {
+int wildwebmidi(char* midi_file, char* wav_file) {
 
     #ifdef NODEJS
     // mount the current folder as a NODEFS instance
@@ -462,151 +401,14 @@ int main(int argc, char **argv) {
     memset(lyrics,' ',MAX_LYRIC_CHAR);
     memset(display_lyrics,' ',MAX_DISPLAY_LYRICS);
 
-#if defined(AUDIODRV_OSS) || defined(AUDIODRV_ALSA)
-    pcmname[0] = 0;
-#endif
-    config_file[0] = 0;
-    wav_file[0] = 0;
-    midi_file[0] = 0;
+    config_file = "/freepats/freepats.cfg";
 
-    do_version();
-    while (1) {
-        i = getopt_long(argc, argv, "0vho:tx:g:f:lr:c:m:btak:p:ed:ns", long_options,
-                &option_index);
-        if (i == -1)
-            break;
-        switch (i) {
-        case 'v': /* Version */
-            return (0);
-        case 'h': /* help */
-            do_syntax();
-            do_help();
-            return (0);
-        case 'r': /* Sample Rate */
-            res = atoi(optarg);
-            if (res < 0 || res > 65535) {
-                fprintf(stderr, "Error: bad rate %i.\n", res);
-                return (1);
-            }
-            rate = res;
-            break;
-        case 'b': /* Reverb */
-            mixer_options |= WM_MO_REVERB;
-            break;
-        case 'm': /* Master Volume */
-            master_volume = (uint8_t) atoi(optarg);
-            break;
-        case 'o': /* Wav Output */
-            if (!*optarg) {
-                fprintf(stderr, "Error: empty wavfile name.\n");
-                return (1);
-            }
-            strncpy(wav_file, optarg, sizeof(wav_file));
-            wav_file[sizeof(wav_file) - 1] = 0;
-            break;
-        case 'g': /* XMIDI Conversion */
-            WildMidi_SetCvtOption(WM_CO_XMI_TYPE, atoi(optarg));
-            break;
-        case 'f': /* MIDI-like Conversion */
-            WildMidi_SetCvtOption(WM_CO_FREQUENCY, atoi(optarg));
-            break;
-        case 'x': /* MIDI Output */
-            if (!*optarg) {
-                fprintf(stderr, "Error: empty midi name.\n");
-                return (1);
-            }
-            strncpy(midi_file, optarg, sizeof(midi_file));
-            midi_file[sizeof(midi_file) - 1] = 0;
-            break;
-        case 'c': /* Config File */
-            if (!*optarg) {
-                fprintf(stderr, "Error: empty config name.\n");
-                return (1);
-            }
-            strncpy(config_file, optarg, sizeof(config_file));
-            config_file[sizeof(config_file) - 1] = 0;
-            break;
-        case 'e': /* Enhanced Resampling */
-            mixer_options |= WM_MO_ENHANCED_RESAMPLING;
-            break;
-        case 'l': /* log volume */
-            mixer_options |= WM_MO_LOG_VOLUME;
-            break;
-        case 't': /* play test midis */
-            test_midi = 1;
-            break;
-        case 'k': /* set test bank */
-            test_bank = (uint8_t) atoi(optarg);
-            break;
-        case 'p': /* set test patch */
-            test_patch = (uint8_t) atoi(optarg);
-            break;
-        case 'n': /* whole number tempo */
-            mixer_options |= WM_MO_ROUNDTEMPO;
-            break;
-        case 'a':
-            /* Some files have the lyrics in the text meta event.
-             * This option reads lyrics from there instead.  */
-            mixer_options |= WM_MO_TEXTASLYRIC;
-            break;
-        case 's': /* whole number tempo */
-            mixer_options |= WM_MO_STRIPSILENCE;
-            break;
-        case '0': /* treat as type 2 midi when writing to file */
-            mixer_options |= WM_MO_SAVEASTYPE0;
-            break;
-        default:
-            do_syntax();
-            return (1);
-        }
-    }
-
-    if (optind >= argc && !test_midi) {
-        fprintf(stderr, "ERROR: No midi file given\r\n");
-        do_syntax();
-        return (1);
-    }
-
-    if (test_midi) {
-        if (midi_file[0] != '\0') {
-            fprintf(stderr, "--test_midi and --convert cannot be used together.\n");
-            return (1);
-        }
-    }
-
-    /* check if we only need to convert a file to midi */
-    if (midi_file[0] != '\0') {
-        const char *real_file = FIND_LAST_DIRSEP(argv[optind]);
-        uint32_t size;
-        uint8_t *data;
-
-        if (!real_file) real_file = argv[optind];
-        else real_file++;
-
-        printf("Converting %s\r\n", real_file);
-        if (WildMidi_ConvertToMidi(argv[optind], &data, &size) < 0) {
-            fprintf(stderr, "Conversion failed.\r\n");
-            return (1);
-        }
-
-        printf("Writing %s: %u bytes.\r\n", midi_file, size);
-        write_midi_output(data, size);
-        free(data);
-        return (0);
-    }
-
-    if (!config_file[0]) {
-        strncpy(config_file, WILDMIDI_CFG, sizeof(config_file));
-        config_file[sizeof(config_file) - 1] = 0;
-    }
+    // do_version();
 
     printf("Initializing Sound System\n");
-    if (wav_file[0] != '\0') {
-
-        if (open_wav_output() == -1) {
-            printf("Cannot open wave");
-            return (1);
-        }
+    if (open_wav_output(wav_file) == -1) {
+        printf("Cannot open wave");
+        return (1);
     }
 
     libraryver = WildMidi_GetVersion();
@@ -615,13 +417,14 @@ int main(int argc, char **argv) {
                         (libraryver>> 8) & 255,
                         (libraryver    ) & 255);
     if (WildMidi_Init(config_file, rate, mixer_options) == -1) {
+        printf("Cannot WildMidi_Init");
         return (1);
     }
 
-    printf(" +  Volume up        e  Better resampling    n  Next Midi\n");
-    printf(" -  Volume down      l  Log volume           q  Quit\n");
-    printf(" ,  1sec Seek Back   r  Reverb               .  1sec Seek Forward\n");
-    printf(" m  save as midi     p  Pause On/Off\n\n");
+    // printf(" +  Volume up        e  Better resampling    n  Next Midi\n");
+    // printf(" -  Volume down      l  Log volume           q  Quit\n");
+    // printf(" ,  1sec Seek Back   r  Reverb               .  1sec Seek Forward\n");
+    // printf(" m  save as midi     p  Pause On/Off\n\n");
 
     output_buffer = malloc(16384);
     if (output_buffer == NULL) {
@@ -632,40 +435,20 @@ int main(int argc, char **argv) {
 
     WildMidi_MasterVolume(master_volume);
 
-    while (optind < argc || test_midi) {
+    // while (optind < argc || test_midi) {
         WildMidi_ClearError();
         if (!test_midi) {
-            const char *real_file = FIND_LAST_DIRSEP(argv[optind]);
+            char *real_file = midi_file;
+            printf("\rProcessing %s ", real_file);
 
-            if (!real_file) real_file = argv[optind];
-            else real_file++;
-            printf("\rPlaying %s ", real_file);
 
-            midi_ptr = WildMidi_Open(argv[optind]);
+            midi_ptr = WildMidi_Open(real_file);
             optind++;
             if (midi_ptr == NULL) {
                 ret_err = WildMidi_GetError();
-                printf(" Skipping: %s\r\n",ret_err);
-                continue;
+                printf(" Error opening midi: %s\r\n",ret_err);
             }
-        } else {
-            if (test_count == midi_test_max) {
-                break;
-            }
-            test_data = malloc(midi_test[test_count].size);
-            memcpy(test_data, midi_test[test_count].data,
-                    midi_test[test_count].size);
-            test_data[25] = test_bank;
-            test_data[28] = test_patch;
-            midi_ptr = WildMidi_OpenBuffer(test_data, 633);
-            test_count++;
-            if (midi_ptr == NULL) {
-                fprintf(stderr, "\rFailed loading test midi no. %i\r\n", test_count);
-                continue;
-            }
-            printf("\rPlaying test midi no. %i ", test_count);
         }
-
         wm_info = WildMidi_GetInfo(midi_ptr);
 
         apr_mins = wm_info->approx_total_samples / (rate * 60);
@@ -677,7 +460,7 @@ int main(int argc, char **argv) {
         modes[3] = ' ';
         modes[4] = '\0';
 
-        printf("\r\n[Approx %2um %2us Total]\r\n", apr_mins, apr_secs);
+        printf("\r\n[Duration of midi approx %2um %2us Total]\r\n", apr_mins, apr_secs);
         fprintf(stderr, "\r");
 
         memset(lyrics,' ',MAX_LYRIC_CHAR);
@@ -747,22 +530,23 @@ int main(int argc, char **argv) {
                 goto end2;
             }
         }
-        NEXTMIDI: fprintf(stderr, "\r\n");
+
+        // NEXT MIDI
+        // fprintf(stderr, "\r\n");
         if (WildMidi_Close(midi_ptr) == -1) {
             ret_err = WildMidi_GetError();
             fprintf(stderr, "OOPS: failed closing midi handle!\r\n%s\r\n",ret_err);
         }
         memset(output_buffer, 0, 16384);
         send_output(output_buffer, 16384);
-    }
-end1: memset(output_buffer, 0, 16384);
-    send_output(output_buffer, 16384);
-    msleep(5);
-#if 0/*#ifdef AUDIODRV_OPENAL*/
-    /* FIXME: Delay needed in OPENAL before exiting to complete the song. */
-    msleep(1000);
-#endif
-end2: close_output();
+    // }
+    // end1:
+    // memset(output_buffer, 0, 16384);
+    // send_output(output_buffer, 16384);
+    // msleep(5);
+
+    end2:
+    close_output();
     free(output_buffer);
     if (WildMidi_Shutdown() == -1) {
         ret_err = WildMidi_GetError();
@@ -770,7 +554,7 @@ end2: close_output();
         WildMidi_ClearError();
     }
 
-    printf("\r\n");
+    printf("ok \r\n");
     return (0);
 }
 
