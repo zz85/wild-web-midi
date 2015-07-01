@@ -25,7 +25,7 @@ var includes = [
     'mus2mid.c',
     'xmi2mid.c',
 
-    'wm_tty.c'
+    // 'wm_tty.c'
 ].map(function(include) {
 	return 'wildmidi/src/' + include;
 });

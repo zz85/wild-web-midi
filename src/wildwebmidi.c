@@ -54,8 +54,10 @@ static int msleep(unsigned long millisec);
 #endif /* !_WIN32, !__DJGPP__ (unix build) */
 
 #include "wildmidi_lib.h"
-#include "wm_tty.h"
 #include "filenames.h"
+
+
+#include <emscripten.h>
 
 struct _midi_test {
     uint8_t *data;
@@ -412,6 +414,16 @@ static void do_syntax(void) {
 static char config_file[1024];
 
 int main(int argc, char **argv) {
+
+    #ifdef NODEJS
+    // mount the current folder as a NODEFS instance
+    // inside of emscripten
+    EM_ASM(
+        FS.mkdir('/working');
+        FS.mount(NODEFS, { root: '.' }, '/working');
+    );
+    #endif
+
     struct _WM_Info *wm_info;
     int i, res;
     int option_index = 0;
@@ -618,8 +630,6 @@ int main(int argc, char **argv) {
         return (1);
     }
 
-    wm_inittty();
-
     WildMidi_MasterVolume(master_volume);
 
     while (optind < argc || test_midi) {
@@ -681,143 +691,6 @@ int main(int argc, char **argv) {
                 break;
 
             ch = 0;
-#ifdef _WIN32
-            if (_kbhit()) {
-                ch = _getch();
-                _putch(ch);
-            }
-#elif defined(__DJGPP__)
-            if (kbhit()) {
-                ch = getch();
-                putch(ch);
-            }
-#else
-            if (read(STDIN_FILENO, &ch, 1) != 1)
-                ch = 0;
-#endif
-            if (ch) {
-                switch (ch) {
-                case 'l':
-                    WildMidi_SetOption(midi_ptr, WM_MO_LOG_VOLUME,
-                                       ((mixer_options & WM_MO_LOG_VOLUME) ^ WM_MO_LOG_VOLUME));
-                    mixer_options ^= WM_MO_LOG_VOLUME;
-                    modes[0] = (mixer_options & WM_MO_LOG_VOLUME)? 'l' : ' ';
-                    break;
-                case 'r':
-                    WildMidi_SetOption(midi_ptr, WM_MO_REVERB,
-                                       ((mixer_options & WM_MO_REVERB) ^ WM_MO_REVERB));
-                    mixer_options ^= WM_MO_REVERB;
-                    modes[1] = (mixer_options & WM_MO_REVERB)? 'r' : ' ';
-                    break;
-                case 'e':
-                    WildMidi_SetOption(midi_ptr, WM_MO_ENHANCED_RESAMPLING,
-                                       ((mixer_options & WM_MO_ENHANCED_RESAMPLING) ^ WM_MO_ENHANCED_RESAMPLING));
-                    mixer_options ^= WM_MO_ENHANCED_RESAMPLING;
-                    modes[2] = (mixer_options & WM_MO_ENHANCED_RESAMPLING)? 'e' : ' ';
-                    break;
-                case 'a':
-                        WildMidi_SetOption(midi_ptr, WM_MO_TEXTASLYRIC,
-                                           ((mixer_options & WM_MO_TEXTASLYRIC) ^ WM_MO_TEXTASLYRIC));
-                        mixer_options ^= WM_MO_TEXTASLYRIC;
-                        break;
-                case 'n':
-                    goto NEXTMIDI;
-                case 'p':
-                    if (inpause) {
-                        inpause = 0;
-                        fprintf(stderr, "       \r");
-                        resume_output();
-                    } else {
-                        inpause = 1;
-                        fprintf(stderr, "Paused \r");
-                        pause_output();
-                        continue;
-                    }
-                    break;
-                case 'q':
-                    printf("\r\n");
-                    if (inpause) goto end2;
-                    goto end1;
-                case '-':
-                    if (master_volume > 0) {
-                        master_volume--;
-                        WildMidi_MasterVolume(master_volume);
-                    }
-                    break;
-                case '+':
-                    if (master_volume < 127) {
-                        master_volume++;
-                        WildMidi_MasterVolume(master_volume);
-                    }
-                    break;
-                case ',': /* fast seek backwards */
-                    if (wm_info->current_sample < rate) {
-                        seek_to_sample = 0;
-                    } else {
-                        seek_to_sample = wm_info->current_sample - rate;
-                    }
-                    WildMidi_FastSeek(midi_ptr, &seek_to_sample);
-                    break;
-                case '.': /* fast seek forwards */
-                    if ((wm_info->approx_total_samples
-                            - wm_info->current_sample) < rate) {
-                        seek_to_sample = wm_info->approx_total_samples;
-                    } else {
-                        seek_to_sample = wm_info->current_sample + rate;
-                    }
-                    WildMidi_FastSeek(midi_ptr, &seek_to_sample);
-                    break;
-                case '<':
-                    WildMidi_SongSeek (midi_ptr, -1);
-                    break;
-                case '>':
-                    WildMidi_SongSeek (midi_ptr, 1);
-                    break;
-                case '/':
-                    WildMidi_SongSeek (midi_ptr, 0);
-                    break;
-                case 'm': /* save as midi */ {
-                    int8_t *getmidibuffer = NULL;
-                    uint32_t getmidisize = 0;
-                    int32_t getmidiret = 0;
-
-                    getmidiret = WildMidi_GetMidiOutput(midi_ptr, &getmidibuffer, &getmidisize);
-                    if (getmidiret == -1) {
-                        fprintf(stderr, "\r\n\nFAILED to convert events to midi\r\n");
-                        ret_err = WildMidi_GetError();
-                        fprintf(stderr, "%s\r\n",ret_err);
-                        WildMidi_ClearError();
-                    } else {
-                        char *real_file = FIND_LAST_DIRSEP(argv[optind-1]);
-                        if (!real_file) real_file = argv[optind];
-                        else real_file++;
-
-                        strncpy(midi_file, real_file, strlen(real_file));
-                        midi_file[strlen(real_file)-4] = '.';
-                        midi_file[strlen(real_file)-3] = 'm';
-                        midi_file[strlen(real_file)-2] = 'i';
-                        midi_file[strlen(real_file)-1] = 'd';
-
-                        printf("\rWriting %s: %u bytes.\r\n", midi_file, getmidisize);
-                        write_midi_output(getmidibuffer,getmidisize);
-                        free(getmidibuffer);
-                    }
-                    }   break;
-                case 'k': /* Kareoke */
-                          /* Enables/Disables the display of lyrics */
-                    kareoke ^= 1;
-                    break;
-                case 'o':
-                    WildMidi_SetOption(midi_ptr, WM_MO_LOOP,
-                                        ((mixer_options & WM_MO_LOOP) ^ WM_MO_LOOP));
-                    mixer_options ^= WM_MO_LOOP;
-                    modes[3] = (mixer_options & WM_MO_LOOP)? 'o' : ' ';
-                    break;
-
-                default:
-                    break;
-                }
-            }
 
             if (inpause) {
                 wm_info = WildMidi_GetInfo(midi_ptr);
@@ -862,10 +735,11 @@ int main(int argc, char **argv) {
                         / wm_info->approx_total_samples;
             pro_mins = wm_info->current_sample / (rate * 60);
             pro_secs = (wm_info->current_sample % (rate * 60)) / rate;
-            fprintf(stderr,
-                "%s [%s] [%3i] [%2um %2us Processed] [%2u%%] %c  \r",
-                display_lyrics, modes, master_volume, pro_mins,
-                pro_secs, perc_play, spinner[spinpoint++ % 4]);
+            // comment to prevent flooding console
+            // fprintf(stderr,
+            //     "%s [%s] [%3i] [%2um %2us Processed] [%2u%%] %c  \r",
+            //     display_lyrics, modes, master_volume, pro_mins,
+            //     pro_secs, perc_play, spinner[spinpoint++ % 4]);
 
             if (send_output(output_buffer, res) < 0) {
             /* driver prints an error message already. */
@@ -895,7 +769,6 @@ end2: close_output();
         fprintf(stderr, "OOPS: failure shutting down libWildMidi\r\n%s\r\n", ret_err);
         WildMidi_ClearError();
     }
-    wm_resetty();
 
     printf("\r\n");
     return (0);
@@ -903,7 +776,6 @@ end2: close_output();
 
 /* helper / replacement functions: */
 
-#if !defined(_WIN32) && !defined(__DJGPP__)
 static int msleep(unsigned long milisec) {
     struct timespec req = { 0, 0 };
     time_t sec = (int) (milisec / 1000);
@@ -914,4 +786,3 @@ static int msleep(unsigned long milisec) {
         continue;
     return (1);
 }
-#endif
