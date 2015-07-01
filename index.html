@@ -107,7 +107,7 @@
       <progress value="0" max="100" id="progress" hidden=1></progress>
     </div>
 
-    <button onclick="convert()">Convert to Wave</button>
+    <button onclick="openFile()">Open Midi</button> <button onclick="convert()">Convert to Wave</button>
     <div id="completed"></div>
 
     <textarea id="output" rows="8"></textarea>
@@ -118,6 +118,61 @@
       var spinnerElement = document.getElementById('spinner');
       var completedElement = document.getElementById('completed');
 
+      var input, openCallback;
+      var midiName = 'ff8waltzthemoon.mid'
+
+      // File Open code adapted from "mrdoobapproves" project
+      function openFile() {
+        openAs(function(file, data) {
+          midiName = file.name;
+          console.log('open ', midiName);
+          FS.writeFile('/freepats/' + midiName, data, { encoding: 'binary' });
+        }, document.body);
+      }
+
+      function handleFileSelect(evt) {
+        var files = evt.target.files; // FileList object
+        var f = files[ 0 ]; // TODO: handle multiple midi files in future
+        if (!f) return;
+
+        if (!f.type.match(/audio\/mid/)) {
+          console.log('Warning: ' + f.type + ' does not seem to be a midi file');
+        }
+
+        var reader = new FileReader();
+
+        // Closure to capture the file information.
+        reader.onload = function(e) {
+          var arrayBuffer = e.target.result;
+          var byteArray = new Uint8Array(arrayBuffer);
+          openCallback(f, byteArray);
+        };
+        r = reader;
+        reader.readAsArrayBuffer(f);
+        input.value = '';
+      }
+
+      function openAs(callback, target) {
+        openCallback = callback;
+
+        if (!input) {
+          input = document.createElement('input');
+          input.style.display = 'none';
+          input.type = 'file';
+          input.addEventListener('change', handleFileSelect);
+          target = target || document.body;
+          target.appendChild(input);
+        }
+
+        var e = document.createEvent('MouseEvents');
+        e.initMouseEvent(
+          'click', true, false, window, 0, 0, 0, 0, 0,
+          false, false, false, false, 0, null
+        );
+
+        input.dispatchEvent(e);
+      }
+
       function convert() {
         spinnerElement.style.display = 'inline-block';
         Module.setStatus('Converting...');
@@ -127,15 +182,20 @@
       }
 
       function runConversion() {
-        var targetWavFile = 'freepats/hoho.wav';
+        var sourceMidi = 'freepats/' + midiName;
+        var targetWav = midiName.replace(/\.mid?i$/, '.wav');
+        var targetPath = sourceMidi + '.wav';
 
-        console.time('conversion');
-        var status = wildwebmidi('freepats/ff8waltzthemoon.mid', targetWavFile);
-        console.timeEnd('conversion');
+        // console.time('conversion');
+        var conversion_start = Date.now();
+        var status = wildwebmidi(sourceMidi, targetPath);
+        console.log('return status', status);
+        var conversion_time = Date.now() - conversion_start;
+        // console.timeEnd('conversion');
 
         Module.setStatus('');
 
-        var wave = FS.readFile(targetWavFile);
+        var wave = FS.readFile(targetPath);
         var blob = new Blob( [ wave ], { type: 'audio/wave' } );
         var objectURL = URL.createObjectURL( blob );
 
@@ -144,24 +204,17 @@
         audio.controls = true;
 
         completedElement.appendChild(audio);
+        completedElement.appendChild(document.createTextNode(' (' + (conversion_time / 1000 | 0) + 's) '));
 
         var link = document.createElement('a');
-        link.innerHTML = 'Download';
+        link.innerHTML = 'Download ' + targetWav;
         link.href = objectURL;
-        link.download = 'hello.wav';
+        link.download = targetWav;
         link.target = '_blank';
 
         completedElement.appendChild(link);
 
         completedElement.appendChild(document.createElement('br'));
-
-        // Auto downloads
-        // var event = document.createEvent("MouseEvents");
-        // event.initMouseEvent(
-        //   "click", true, false, window, 0, 0, 0, 0, 0
-        //   , false, false, false, false, 0, null
-        // );
-        // link.dispatchEvent(event);
 
       }
 
