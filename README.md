@@ -31,3 +31,4 @@ TODO
 - stream audio to Web Audio API
 - pass output through lame or other MP3 encoders for download
 - allow custom patches
+- selective download of patches (faster downloads)
