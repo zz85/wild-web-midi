@@ -41,8 +41,10 @@ if (NODEJS) DEFINES.NODEJS = 1;
 
 var FLAGS = OPTIMIZE_FLAGS;
 
-FLAGS += ' -s ALLOW_MEMORY_GROWTH=1';
-FLAGS += ' -s TOTAL_MEMORY=67108864 '; // 67108864 - 64MB 33554432
+var MEM = 64 * 1024 * 1024; // 64MB
+FLAGS += ' -s TOTAL_MEMORY=' + MEM + ' ';
+// FLAGS += ' -s ALLOW_MEMORY_GROWTH=1';
+
 if (!NODEJS) FLAGS += ' --preload-file freepats ';
 
 // var DEBUG_FLAGS = '-g';

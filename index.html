@@ -226,6 +226,8 @@
         Module.setStatus('');
 
         var wave = FS.readFile(targetPath);
+        FS.unlink(targetPath); // clean memeory!!
+
         var blob = new Blob( [ wave ], { type: 'audio/wave' } );
         var objectURL = URL.createObjectURL( blob );
 
