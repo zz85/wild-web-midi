@@ -3,13 +3,13 @@
  * @author zz85 github.com/zz85
  */
 
-var NODEJS = false;
+var NODEJS = 0;
 
-var EMCC = '/usr/lib/emsdk_portable/emscripten/1.30.0/emcc';
+var EMCC = '/usr/lib/emsdk_portable/emscripten/master/emcc';
 
-var OPTIMIZE_FLAGS = ' -O2';
+var OPTIMIZE_FLAGS = ' -O2 ';
 
-var includes = [
+var sources = [
     'wm_error.c',
     'file_io.c',
     'lock.c',
@@ -27,40 +27,55 @@ var includes = [
     'mus2mid.c',
     'xmi2mid.c',
 
-    // 'wm_tty.c'
+    // 'wm_tty.c',
+    // 'wildmidi.c',
 ].map(function(include) {
 	return 'wildmidi/src/' + include;
 });
 
-includes.push('src/wildwebmidi.c');
+sources.push('src/wildwebmidi.c');
 
-console.log('Includes: ' + includes);
+console.log('sources: ' + sources);
 
-var DEFINES = {};
-if (NODEJS) DEFINES.NODEJS = 1;
+var DEFINES = '';
 
 var FLAGS = OPTIMIZE_FLAGS;
 
 var MEM = 64 * 1024 * 1024; // 64MB
 FLAGS += ' -s TOTAL_MEMORY=' + MEM + ' ';
-// FLAGS += ' -s ALLOW_MEMORY_GROWTH=1';
 
-if (!NODEJS) FLAGS += ' --preload-file freepats ';
 
+if (NODEJS) {
+	DEFINES += ' -DNODEJS=1'
+}
+else {
+	// browser
+	FLAGS += ' --preload-file freepats ';
+	FLAGS += ' --pre-js pre.js --post-js post.js '
+}
+
+FLAGS += ' -s EMTERPRETIFY=1 ';
+FLAGS += ' -s EMTERPRETIFY_ASYNC=1 ';
+FLAGS += ' -s EMTERPRETIFY_WHITELIST="[\'_wildwebmidi\']" ';
+
+/* DEBUG FLAGS */
 // var DEBUG_FLAGS = '-g';
-//  -s DEMANGLE_SUPPORT=1
-// FLAGS += ' -s EMTERPRETIFY=1 '
+// FLAGS += ' -s ASSERTIONS=1 '
+// FLAGS += ' --profiling-funcs '
+// FLAGS += ' -s EMTERPRETIFY_ADVISE=1 '
+// FLAGS += ' -s ALLOW_MEMORY_GROWTH=1';
+// FLAGS += '  -s DEMANGLE_SUPPORT=1 ';
 
-FLAGS += ' --pre-js pre.js --post-js post.js '
+var INCLUDES = '';
+INCLUDES += '-Isrc ';
+INCLUDES += '-I/System/Library/Frameworks/OpenAL.framework/Headers ';
+INCLUDES += '-Iwildmidi/include ';
 
-var defines = Object.keys(DEFINES).map(function(d) {
-	return '-D' + d + '=' + DEFINES[d];
-}).join(' ');
 
-var compile_all = EMCC + ' -Isrc -Iwildmidi/include  '
-	+ includes.join(' ')
-	+ FLAGS + ' ' + defines + ' -o wildwebmidi.js -s EXPORTED_FUNCTIONS="[\'_wildwebmidi\']"' ;
-
+var compile_all = EMCC + ' ' + INCLUDES
+	+ sources.join(' ')
+	+ FLAGS + ' ' + DEFINES + ' -o wildwebmidi.js '
+	+ ' -s EXPORTED_FUNCTIONS="[\'_wildwebmidi\']"' ;
 
 var
 	exec = require('child_process').exec,

@@ -67,3 +67,4 @@
 /* #undef AUDIODRV_ALSA */
 /* #undef AUDIODRV_OSS */
 /* #define AUDIODRV_OPENAL */
+#define AUDIODRV_OPENAL

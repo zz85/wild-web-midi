@@ -49,7 +49,8 @@ static int msleep(unsigned long millisec);
 #   include <soundcard.h> /* less common, but exists. */
 #   endif
 #elif defined AUDIODRV_OPENAL
-
+#   include <al.h>
+#   include <alc.h>
 #endif
 #endif /* !_WIN32, !__DJGPP__ (unix build) */
 
@@ -337,6 +338,129 @@ end:    printf("\n");
     audio_fd = -1;
 }
 
+#if defined AUDIODRV_OPENAL
+
+#define NUM_BUFFERS 4
+
+static ALCdevice *device;
+static ALCcontext *context;
+static ALuint sourceId = 0;
+static ALuint buffers[NUM_BUFFERS];
+static ALuint frames = 0;
+
+#define open_audio_output open_openal_output
+
+static void pause_output_openal(void) {
+    alSourcePause(sourceId);
+}
+
+static int write_openal_output(int8_t *output_data, int output_size) {
+    ALint processed, state;
+    ALuint bufid;
+
+    if (frames < NUM_BUFFERS) { /* initial state: fill the buffers */
+        alBufferData(buffers[frames], AL_FORMAT_STEREO16, output_data,
+                     output_size, rate);
+
+        /* Now queue and start playback! */
+        if (++frames == NUM_BUFFERS) {
+            alSourceQueueBuffers(sourceId, frames, buffers);
+            alSourcePlay(sourceId);
+        }
+        return 0;
+    }
+
+    /* Get relevant source info */
+    alGetSourcei(sourceId, AL_SOURCE_STATE, &state);
+    if (state == AL_PAUSED) { /* resume it, then.. */
+        alSourcePlay(sourceId);
+        if (alGetError() != AL_NO_ERROR) {
+            fprintf(stderr, "\nError restarting playback\r\n");
+            return (-1);
+        }
+    }
+
+    processed = 0;
+    while (processed == 0) { /* Wait until we have a processed buffer */
+        alGetSourcei(sourceId, AL_BUFFERS_PROCESSED, &processed);
+    }
+
+    /* Unqueue and handle each processed buffer */
+    alSourceUnqueueBuffers(sourceId, 1, &bufid);
+
+    /* Read the next chunk of data, refill the buffer, and queue it
+     * back on the source */
+    alBufferData(bufid, AL_FORMAT_STEREO16, output_data, output_size, rate);
+    alSourceQueueBuffers(sourceId, 1, &bufid);
+    if (alGetError() != AL_NO_ERROR) {
+        fprintf(stderr, "\nError buffering data\r\n");
+        return (-1);
+    }
+
+    /* Make sure the source hasn't underrun */
+    alGetSourcei(sourceId, AL_SOURCE_STATE, &state);
+    /*printf("STATE: %#08x - %d\n", state, queued);*/
+    if (state != AL_PLAYING) {
+        ALint queued;
+
+        /* If no buffers are queued, playback is finished */
+        alGetSourcei(sourceId, AL_BUFFERS_QUEUED, &queued);
+        if (queued == 0) {
+            fprintf(stderr, "\nNo buffers queued for playback\r\n");
+            return (-1);
+        }
+
+        alSourcePlay(sourceId);
+    }
+
+    return (0);
+}
+
+static void close_openal_output(void) {
+    if (!context) return;
+    printf("Shutting down sound output\r\n");
+    alSourceStop(sourceId);         /* stop playing */
+    alSourcei(sourceId, AL_BUFFER, 0);  /* unload buffer from source */
+    alDeleteBuffers(NUM_BUFFERS, buffers);
+    alDeleteSources(1, &sourceId);
+    alcDestroyContext(context);
+    alcCloseDevice(device);
+    context = NULL;
+    device = NULL;
+    frames = 0;
+}
+
+static int open_openal_output(void) {
+    /* setup our audio devices and contexts */
+    device = alcOpenDevice(NULL);
+    if (!device) {
+        fprintf(stderr, "OpenAL: Unable to open default device.\r\n");
+        return (-1);
+    }
+
+    context = alcCreateContext(device, NULL);
+    if (context == NULL || alcMakeContextCurrent(context) == ALC_FALSE) {
+        if (context != NULL)
+            alcDestroyContext(context);
+        alcCloseDevice(device);
+        context = NULL;
+        device = NULL;
+        fprintf(stderr, "OpenAL: Failed to create the default context.\r\n");
+        return (-1);
+    }
+
+    /* setup our sources and buffers */
+    alGenSources(1, &sourceId);
+    alGenBuffers(NUM_BUFFERS, buffers);
+
+    send_output = write_openal_output;
+    close_output = close_openal_output;
+    pause_output = pause_output_openal;
+    resume_output = resume_output_nop;
+    return (0);
+}
+#endif
+
 /* no audio output driver compiled in: */
 
 static void do_version(void) {
@@ -406,8 +530,12 @@ int wildwebmidi(char* midi_file, char* wav_file) {
     // do_version();
 
     printf("Initializing Sound System\n");
-    if (open_wav_output(wav_file) == -1) {
-        printf("Cannot open wave");
+    // if (open_wav_output(wav_file) == -1) {
+    //     printf("Cannot open wave");
+    //     return (1);
+    // } else
+    if (open_audio_output() == -1) {
+        printf("Cannot audio output");
         return (1);
     }
 
