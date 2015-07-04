@@ -142,7 +142,9 @@
       var completedElement = document.getElementById('completed');
 
       var input, openCallback;
+
       var midiName = ''
+      var convertionJob = null;
 
       function convertMidi(name) {
         midiName = name;
@@ -156,7 +158,7 @@
           midiName = file.name;
           console.log('open ', midiName);
           FS.writeFile('/freepats/' + midiName, data, { encoding: 'binary' });
-          setTimeout(convert, 100);
+          convert();
         }, document.body);
       }
 
@@ -177,7 +179,6 @@
           var byteArray = new Uint8Array(arrayBuffer);
           openCallback(f, byteArray);
         };
-        r = reader;
         reader.readAsArrayBuffer(f);
         input.value = '';
       }
@@ -204,29 +205,56 @@
       }
 
       function convert() {
+        if (convertionJob) {
+          console.log('current midi is running...');
+          Module.setStatus('Conversion job still pending...');
+          return;
+        }
         spinnerElement.style.display = 'inline-block';
         Module.setStatus('Converting...');
-        // run in the next tick so UI can update.
-        setTimeout(runConversion);
 
+        // add small delay so UI can update.
+        setTimeout(runConversion, 200);
       }
 
       function runConversion() {
-        var sourceMidi = 'freepats/' + midiName;
-        var targetWav = midiName.replace(/\.midi?$/i, '.wav');
-        var targetPath = sourceMidi + '.wav';
+        convertionJob = {
+          sourceMidi: 'freepats/' + midiName,
+          targetWav: midiName.replace(/\.midi?$/i, '.wav'),
+          targetPath: this.sourceMidi + '.wav',
+          conversion_start: Date.now()
+        };
 
-        // console.time('conversion');
-        var conversion_start = Date.now();
-        var status = wildwebmidi(sourceMidi, targetPath);
-        console.log('return status', status);
-        var conversion_time = Date.now() - conversion_start;
+        var method = 'async';
+        switch (method) {
+        case 'synchronous':
+          wildwebmidi(sourceMidi, targetPath);
+          break;
+        case 'worker':
+          worker.postMessage({
+            type: 'convert',
+            content: [sourceMidi, targetPath]
+          });
+          break;
+        case 'async':
+          Module.ccall('wildwebmidi',
+            null,
+            ['string', 'string', 'number'],
+            [convertionJob.sourceMidi, convertionJob.targetPath, 1],
+            { async: true }
+          );
+          break;
+        }
+      }
+
+      function completeConversion() {
+        var conversion_time = Date.now() - convertionJob.conversion_start;
         // console.timeEnd('conversion');
 
         Module.setStatus('');
 
-        var wave = FS.readFile(targetPath);
-        FS.unlink(targetPath); // clean memeory!!
+        var wave = FS.readFile(convertionJob.targetPath);
+        FS.unlink(convertionJob.targetPath); // clean memeory!!
 
         var blob = new Blob( [ wave ], { type: 'audio/wave' } );
         var objectURL = URL.createObjectURL( blob );
@@ -240,20 +268,22 @@
         completedElement.appendChild(document.createTextNode(' Took ' + (conversion_time / 1000 | 0) + 's. '));
 
         var link = document.createElement('a');
-        link.innerHTML = 'Download ' + targetWav;
+        link.innerHTML = 'Download ' + convertionJob.targetWav;
         link.href = objectURL;
-        link.download = targetWav;
+        link.download = convertionJob.targetWav;
         link.target = '_blank';
 
         completedElement.appendChild(link);
 
         completedElement.appendChild(document.createElement('br'));
 
+        convertionJob = null;
+
       }
 
       var Module = {
         // arguments: '-c /freepats/freepats.cfg -o /freepats/hoho.wav /freepats/alb_se5.mid'.split(' '),
-        // noInitialRun: true,
+        noInitialRun: true,
         // noExitRuntime: true,
         preRun: [],
         postRun: [],
