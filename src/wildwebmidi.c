@@ -57,6 +57,7 @@ static int msleep(unsigned long millisec);
 #include "wildmidi_lib.h"
 #include "filenames.h"
 
+static void completeConversion(int status);
 
 #include <emscripten.h>
 
@@ -459,6 +460,13 @@ static int open_openal_output(void) {
     resume_output = resume_output_nop;
     return (0);
 }
+#else /* no audio output driver compiled in: */
+
+#define open_audio_output open_noaudio_output
+static int open_noaudio_output(void) {
+    return -1;
+}
+
 #endif
 
 /* no audio output driver compiled in: */
@@ -476,7 +484,7 @@ static void do_version(void) {
 
 static char *config_file;
 
-int wildwebmidi(char* midi_file, char* wav_file) {
+int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
 
     #ifdef NODEJS
     // mount the current folder as a NODEFS instance
@@ -530,12 +538,15 @@ int wildwebmidi(char* midi_file, char* wav_file) {
     // do_version();
 
     printf("Initializing Sound System\n");
-    // if (open_wav_output(wav_file) == -1) {
-    //     printf("Cannot open wave");
-    //     return (1);
-    // } else
-    if (open_audio_output() == -1) {
+    if (wav_file[0] != '\0') {
+        if (open_wav_output(wav_file) == -1) {
+            printf("Cannot open wave");
+            completeConversion(1);
+            return (1);
+        }
+    } else if (open_audio_output() == -1) {
         printf("Cannot audio output");
+        completeConversion(1);
         return (1);
     }
 
@@ -546,6 +557,7 @@ int wildwebmidi(char* midi_file, char* wav_file) {
                         (libraryver    ) & 255);
     if (WildMidi_Init(config_file, rate, mixer_options) == -1) {
         printf("Cannot WildMidi_Init");
+        completeConversion(1);
         return (1);
     }
 
@@ -558,6 +570,7 @@ int wildwebmidi(char* midi_file, char* wav_file) {
     if (output_buffer == NULL) {
         fprintf(stderr, "Not enough memory, exiting\n");
         WildMidi_Shutdown();
+        completeConversion(1);
         return (1);
     }
 
@@ -653,10 +666,15 @@ int wildwebmidi(char* midi_file, char* wav_file) {
             //     pro_secs, perc_play, spinner[spinpoint++ % 4]);
 
             if (send_output(output_buffer, res) < 0) {
-            /* driver prints an error message already. */
+                /* driver prints an error message already. */
                 printf("\r");
                 goto end2;
             }
+
+            // this converts to setTimeout and lets browser breath!
+            if (sleep > -1) emscripten_sleep(sleep);
+            // msleep(5);
+            // end while
         }
 
         // NEXT MIDI
@@ -683,8 +701,27 @@ int wildwebmidi(char* midi_file, char* wav_file) {
     }
 
     printf("ok \r\n");
-    return (0);
+    completeConversion(0);
+
+    // int x = EM_ASM_INT({
+    //     console.log('take these values and do something', $0);
+    //     // pass JS values back to C
+    //     return $0;
+    // }, some_c_values());
+
+    return 0;
 }
+
+static void completeConversion(int status) {
+    EM_ASM(
+        completeConversion(status);
+    );
+}
+
+// static int msleep(unsigned long milisec) {
+//     emscripten_sleep(milisec);
+//     return 1;
+// }
 
 /* helper / replacement functions: */
 

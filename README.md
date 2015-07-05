@@ -19,6 +19,7 @@ node make
 ```
 
 Updates
+- 5 July 2015 - allows wave rendering and realtime web audio playback
 - 4 July 2015 - test openal and emterpreter support
 - 3 July 2015 - better memory usage (browser doesn't crash after repeated conversions!)
 - 2 July 2015 - update index and added sample midi files

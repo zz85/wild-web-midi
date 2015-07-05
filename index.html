@@ -94,7 +94,7 @@
     </style>
   </head>
   <body>
-    <h2>Wild Web Midi - quality midi conversion in your browser.</h2>
+    <h2>Wild Web Midi - quality midi rendering in your browser in javascript.</h2>
 
     <h3>Check out <a href="https://github.com/zz85/wild-web-midi">project on github</a> | Follow <a href="https://twitter.com/blurspline">@blurspline</a> for updates</h3>
 
@@ -127,7 +127,8 @@
     &#x25CF; <a href="#" onclick="return convertMidi('melodies_of_life.mid');">Melodies of life (7:32)</a>
     </div>
 
-    <button onclick="openFile()">Open Midi and Convert!</button>
+    <button onclick="openFile()">Open Midi!</button>
+    <label><input type="checkbox" id="webaudio"/> Web Audio Playback (Real-time, uses less CPU and memory)</label>
 
     <div id="completed"></div>
 
@@ -140,6 +141,7 @@
       var progressElement = document.getElementById('progress');
       var spinnerElement = document.getElementById('spinner');
       var completedElement = document.getElementById('completed');
+      var webaudioElement = document.getElementById('webaudio');
 
       var input, openCallback;
 
@@ -225,6 +227,12 @@
           conversion_start: Date.now()
         };
 
+        var sleep = -1; // use -1 for a blocking loop which is the fastest actually.
+        if (webaudioElement.checked) {
+          convertionJob.targetPath = '';
+          sleep = 100;
+        }
+
         var method = 'async';
         switch (method) {
         case 'synchronous':
@@ -240,42 +248,45 @@
           Module.ccall('wildwebmidi',
             null,
             ['string', 'string', 'number'],
-            [convertionJob.sourceMidi, convertionJob.targetPath, 1],
+            [convertionJob.sourceMidi, convertionJob.targetPath, sleep],
             { async: true }
           );
           break;
         }
       }
 
-      function completeConversion() {
+      function completeConversion(status) {
+        console.log('complete conversion', status)
         var conversion_time = Date.now() - convertionJob.conversion_start;
         // console.timeEnd('conversion');
 
         Module.setStatus('');
 
-        var wave = FS.readFile(convertionJob.targetPath);
-        FS.unlink(convertionJob.targetPath); // clean memeory!!
+        if (convertionJob.targetPath) {
+          var wave = FS.readFile(convertionJob.targetPath);
+          FS.unlink(convertionJob.targetPath); // clean memeory!!
 
-        var blob = new Blob( [ wave ], { type: 'audio/wave' } );
-        var objectURL = URL.createObjectURL( blob );
+          var blob = new Blob( [ wave ], { type: 'audio/wave' } );
+          var objectURL = URL.createObjectURL( blob );
 
-        var audio = document.createElement('audio');
-        audio.src = objectURL;
-        audio.controls = true;
-        audio.autoplay = true;
+          var audio = document.createElement('audio');
+          audio.src = objectURL;
+          audio.controls = true;
+          audio.autoplay = true;
 
-        completedElement.appendChild(audio);
-        completedElement.appendChild(document.createTextNode(' Took ' + (conversion_time / 1000 | 0) + 's. '));
+          completedElement.appendChild(audio);
+          completedElement.appendChild(document.createTextNode(' Took ' + (conversion_time / 1000 | 0) + 's. '));
 
-        var link = document.createElement('a');
-        link.innerHTML = 'Download ' + convertionJob.targetWav;
-        link.href = objectURL;
-        link.download = convertionJob.targetWav;
-        link.target = '_blank';
+          var link = document.createElement('a');
+          link.innerHTML = 'Download ' + convertionJob.targetWav;
+          link.href = objectURL;
+          link.download = convertionJob.targetWav;
+          link.target = '_blank';
 
-        completedElement.appendChild(link);
+          completedElement.appendChild(link);
 
-        completedElement.appendChild(document.createElement('br'));
+          completedElement.appendChild(document.createElement('br'));
+        }
 
         convertionJob = null;
 
