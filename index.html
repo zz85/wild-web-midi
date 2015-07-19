@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Wild Web Midi - Quality Midi to Wave convertor in JS</title>
+    <title>Wild Web Midi - Quality Midi to Wave convertor with JS</title>
     <style>
       body {
         font-family: arial;
@@ -128,7 +128,7 @@
     </div>
 
     <button onclick="openFile()">Open Midi!</button>
-    <label><input type="checkbox" id="webaudio"/> Web Audio Playback (Real-time, uses less CPU and memory)</label>
+    <label><input type="checkbox" id="webaudio" checked /> Web Audio Playback (Real-time, uses less CPU and memory)</label>
 
     <div id="completed"></div>
 
@@ -147,6 +147,101 @@
 
       var midiName = ''
       var convertionJob = null;
+
+      var BUFFER = 4096; // buffer sample
+      var BYTES = 4 * BUFFER; // buffer size in bytes
+      var channels = 1;
+
+      var buffer = new ArrayBuffer(BYTES);
+      var buffer_i8 = new Int8Array(buffer);
+      var buffer_f32 = new Float32Array(buffer);
+
+      var audio_queue = [];
+
+      // Create AudioContext and buffer source
+      var audioCtx = new AudioContext();
+      var source = audioCtx.createBufferSource();
+      var scriptNode = audioCtx.createScriptProcessor(BUFFER, 1, 1);
+
+      console.log(scriptNode.bufferSize);
+
+// Give the node a function to process audio events
+scriptNode.onaudioprocess = function(audioProcessingEvent) {
+  // console.log(audio_queue.length);
+  if (!audio_queue.length) {
+    console.log('buffer under run!!')
+    return;
+  }
+
+  // var
+  generated = audio_queue.shift();
+
+  // The output buffer contains the samples that will be modified and played
+  var outputBuffer = audioProcessingEvent.outputBuffer;
+
+  outputBuffer.copyToChannel(generated.getChannelData(0), 0, 0);
+
+  // Loop through the output channels (in this case there is only one)
+  for (var channel = 0; channel < outputBuffer.numberOfChannels; channel++) {
+    outputData = outputBuffer.getChannelData(channel);
+    outputData.set(generated.getChannelData(0), 0);
+  }
+}
+
+function startAudio() {
+  source.connect(scriptNode);
+  scriptNode.connect(audioCtx.destination);
+  source.start();
+}
+
+function processAudio(buffer) {
+  var offlineCtx = new OfflineAudioContext(channels, BUFFER, 44100);
+  var audioBuffer = audioCtx.createBuffer(1, BUFFER, 32072); // 4096 16384
+  var bufferSource = offlineCtx.createBufferSource();
+
+  // copy buffers to Audio
+  audioBuffer.getChannelData(0).set(buffer, 0);
+
+  bufferSource.buffer = audioBuffer;
+  bufferSource.connect(offlineCtx.destination);
+  bufferSource.start();
+
+  offlineCtx.startRendering().then(function(renderedBuffer) {
+    // conversion to 44.1k
+    audio_queue.push(renderedBuffer);
+  }).catch(function(err) {
+      console.log('Rendering failed: ' + err);
+  });
+}
+
+setInterval(function() {
+  console.log('audio queue', audio_queue.length);
+}, 5000);
+
+      var done;
+      function testing(buffer_loc, size) {
+        // if (done) return;
+        // done = true;
+        // console.log('testing');
+        // console.log('size', size)
+
+        // var buffer = new ArrayBuffer(BYTES);
+        // var buffer_i8 = new Int8Array(buffer);
+
+        // Copy emscripten memory to JS
+        for (var i = 0; i < size; i++) {
+          buffer_i8[i] = Module.HEAP8[buffer_loc + i];
+        }
+
+        processAudio(buffer_f32);
+
+        // processAudio(buffer_f32);
+        // var new_buffer = Module.HEAP8.subarray(buffer_loc, buffer_loc+size)
+
+        // var new_buffer = buffer_i8.subarray(0, size);
+        // processAudio(new Float32Array(new_buffer.buffer));
+
+      }
 
       function convertMidi(name) {
         midiName = name;
@@ -230,7 +325,7 @@
         var sleep = -1; // use -1 for a blocking loop which is the fastest actually.
         if (webaudioElement.checked) {
           convertionJob.targetPath = '';
-          sleep = 100;
+          sleep = 80;
         }
 
         var method = 'async';

@@ -665,11 +665,16 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
             //     display_lyrics, modes, master_volume, pro_mins,
             //     pro_secs, perc_play, spinner[spinpoint++ % 4]);
 
-            if (send_output(output_buffer, res) < 0) {
+            EM_ASM_({
+                testing($0, $1);
+            }, output_buffer, res);
+
+
+            // if (send_output(output_buffer, res) < 0) {
                 /* driver prints an error message already. */
-                printf("\r");
-                goto end2;
-            }
+                // printf("\r");
+                // goto end2;
+            // }
 
             // this converts to setTimeout and lets browser breath!
             if (sleep > -1) emscripten_sleep(sleep);
