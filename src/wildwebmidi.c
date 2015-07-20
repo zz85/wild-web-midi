@@ -173,7 +173,7 @@ static int midi_test_max = 1;
  ==============================
  */
 
-static unsigned int rate = 32072;
+static unsigned int rate = 44100; // 32072;
 
 static int (*send_output)(int8_t *output_data, int output_size);
 static void (*close_output)(void);

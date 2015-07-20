@@ -148,13 +148,12 @@
       var midiName = ''
       var convertionJob = null;
 
+      var SOURCE_SAMPLE_RATE = 44100; // 32072;
+      var TARGET_SAMPLE_RATE = 44100;
+
       var BUFFER = 4096; // buffer sample
       var BYTES = 4 * BUFFER; // buffer size in bytes
       var channels = 1;
-
-      var buffer = new ArrayBuffer(BYTES);
-      var buffer_i8 = new Int8Array(buffer);
-      var buffer_f32 = new Float32Array(buffer);
 
       var audio_queue = [];
 
@@ -168,24 +167,27 @@
 // Give the node a function to process audio events
 scriptNode.onaudioprocess = function(audioProcessingEvent) {
   // console.log(audio_queue.length);
-  if (!audio_queue.length) {
-    console.log('buffer under run!!')
-    return;
-  }
 
-  // var
-  generated = audio_queue.shift();
+  var i = 0;
+  // for (i = 0 ; i < 4; i ++) {
+    if (!audio_queue.length) {
+      console.log('buffer under run!!')
+      return;
+    }
+    // var
+    generated = audio_queue.shift();
 
-  // The output buffer contains the samples that will be modified and played
-  var outputBuffer = audioProcessingEvent.outputBuffer;
+    // The output buffer contains the samples that will be modified and played
+    var outputBuffer = audioProcessingEvent.outputBuffer;
 
-  outputBuffer.copyToChannel(generated.getChannelData(0), 0, 0);
+    outputBuffer.copyToChannel(generated, 0, BUFFER * i);
 
-  // Loop through the output channels (in this case there is only one)
-  for (var channel = 0; channel < outputBuffer.numberOfChannels; channel++) {
-    outputData = outputBuffer.getChannelData(channel);
-    outputData.set(generated.getChannelData(0), 0);
-  }
+    // Loop through the output channels (in this case there is only one)
+    // for (var channel = 0; channel < outputBuffer.numberOfChannels; channel++) {
+    //   outputData = outputBuffer.getChannelData(channel);
+    //   outputData.set(generated.getChannelData(0), 0);
+  // }
+  // }
 }
 
 function startAudio() {
@@ -195,23 +197,25 @@ function startAudio() {
 }
 
 function processAudio(buffer) {
-  var offlineCtx = new OfflineAudioContext(channels, BUFFER, 44100);
-  var audioBuffer = audioCtx.createBuffer(1, BUFFER, 32072); // 4096 16384
-  var bufferSource = offlineCtx.createBufferSource();
 
-  // copy buffers to Audio
-  audioBuffer.getChannelData(0).set(buffer, 0);
+  audio_queue.push(buffer);
+  // var offlineCtx = new OfflineAudioContext(channels, BUFFER, TARGET_SAMPLE_RATE);
+  // var audioBuffer = audioCtx.createBuffer(1, BUFFER, SOURCE_SAMPLE_RATE);
+  // var bufferSource = offlineCtx.createBufferSource();
 
-  bufferSource.buffer = audioBuffer;
-  bufferSource.connect(offlineCtx.destination);
-  bufferSource.start();
+  // // copy buffers to Audio
+  // audioBuffer.getChannelData(0).set(buffer, 0);
 
-  offlineCtx.startRendering().then(function(renderedBuffer) {
-    // conversion to 44.1k
-    audio_queue.push(renderedBuffer);
-  }).catch(function(err) {
-      console.log('Rendering failed: ' + err);
-  });
+  // bufferSource.buffer = audioBuffer;
+  // bufferSource.connect(offlineCtx.destination);
+  // bufferSource.start();
+
+  // offlineCtx.startRendering().then(function(renderedBuffer) {
+  //   // conversion to 44.1k
+  //   audio_queue.push(renderedBuffer);
+  // }).catch(function(err) {
+  //     console.log('Rendering failed: ' + err);
+  // });
 }
 
 setInterval(function() {
@@ -219,19 +223,26 @@ setInterval(function() {
 }, 5000);
 
       var done;
+
       function testing(buffer_loc, size) {
         // if (done) return;
         // done = true;
         // console.log('testing');
         // console.log('size', size)
 
-        // var buffer = new ArrayBuffer(BYTES);
-        // var buffer_i8 = new Int8Array(buffer);
+        var buffer = new ArrayBuffer(BYTES * 2);
+        var buffer_f32 = new Float32Array(buffer);
+
 
         // Copy emscripten memory to JS
         for (var i = 0; i < size; i++) {
-          buffer_i8[i] = Module.HEAP8[buffer_loc + i];
+          // buffer_i8[i] = Module.HEAP8[buffer_loc + i];
+          // buffer_i8[i] = Module.HEAP8[buffer_loc + i];
+          // console.log(Module.HEAP8[buffer_loc + i]);
+          buffer_f32[i] = Module.HEAP16[(buffer_loc >> 1) + 2 * i + 1] / 32768;
         }
+
+        // console.log(buffer_f32);
 
         processAudio(buffer_f32);
 
