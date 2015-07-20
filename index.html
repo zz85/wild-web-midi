@@ -148,46 +148,34 @@
       var midiName = ''
       var convertionJob = null;
 
-      var SOURCE_SAMPLE_RATE = 44100; // 32072;
-      var TARGET_SAMPLE_RATE = 44100;
-
+      var SAMPLE_RATE = 44100;
       var BUFFER = 4096; // buffer sample
-      var BYTES = 4 * BUFFER; // buffer size in bytes
-      var channels = 1;
+      var channels = 2;
 
       var audio_queue = [];
 
       // Create AudioContext and buffer source
       var audioCtx = new AudioContext();
       var source = audioCtx.createBufferSource();
-      var scriptNode = audioCtx.createScriptProcessor(BUFFER, 1, 1);
+      var scriptNode = audioCtx.createScriptProcessor(BUFFER, 0 , channels);
 
       console.log(scriptNode.bufferSize);
 
+function CircularAudioBuffer() {
+  // this.next();
+}
+
 // Give the node a function to process audio events
 scriptNode.onaudioprocess = function(audioProcessingEvent) {
-  // console.log(audio_queue.length);
-
-  var i = 0;
-  // for (i = 0 ; i < 4; i ++) {
-    if (!audio_queue.length) {
-      console.log('buffer under run!!')
-      return;
-    }
-    // var
-    generated = audio_queue.shift();
-
-    // The output buffer contains the samples that will be modified and played
-    var outputBuffer = audioProcessingEvent.outputBuffer;
-
-    outputBuffer.copyToChannel(generated, 0, BUFFER * i);
-
-    // Loop through the output channels (in this case there is only one)
-    // for (var channel = 0; channel < outputBuffer.numberOfChannels; channel++) {
-    //   outputData = outputBuffer.getChannelData(channel);
-    //   outputData.set(generated.getChannelData(0), 0);
-  // }
-  // }
+  if (!audio_queue.length) {
+    console.log('buffer under run!!')
+    return;
+  }
+  var generated = audio_queue.shift();
+  var outputBuffer = audioProcessingEvent.outputBuffer;
+  var offset = 0;
+  outputBuffer.copyToChannel(generated.getChannelData(0), 0, offset);
+  outputBuffer.copyToChannel(generated.getChannelData(1), 1, offset);
 }
 
 function startAudio() {
@@ -197,25 +185,7 @@ function startAudio() {
 }
 
 function processAudio(buffer) {
-
   audio_queue.push(buffer);
-  // var offlineCtx = new OfflineAudioContext(channels, BUFFER, TARGET_SAMPLE_RATE);
-  // var audioBuffer = audioCtx.createBuffer(1, BUFFER, SOURCE_SAMPLE_RATE);
-  // var bufferSource = offlineCtx.createBufferSource();
-
-  // // copy buffers to Audio
-  // audioBuffer.getChannelData(0).set(buffer, 0);
-
-  // bufferSource.buffer = audioBuffer;
-  // bufferSource.connect(offlineCtx.destination);
-  // bufferSource.start();
-
-  // offlineCtx.startRendering().then(function(renderedBuffer) {
-  //   // conversion to 44.1k
-  //   audio_queue.push(renderedBuffer);
-  // }).catch(function(err) {
-  //     console.log('Rendering failed: ' + err);
-  // });
 }
 
 setInterval(function() {
@@ -230,28 +200,22 @@ setInterval(function() {
         // console.log('testing');
         // console.log('size', size)
 
-        var buffer = new ArrayBuffer(BYTES * 2);
-        var buffer_f32 = new Float32Array(buffer);
+        var buffer = audioCtx.createBuffer(channels, BUFFER, SAMPLE_RATE);
+        var left_buffer_f32 = buffer.getChannelData(0);
+        var right_buffer_f32 = buffer.getChannelData(1);
 
+        // var left_buffer = new ArrayBuffer(BUFFER * 4);
+        // var left_buffer_f32 = new Float32Array(left_buffer);
+        // var right_buffer = new ArrayBuffer(BUFFER * 4);
+        // var right_buffer_f32 = new Float32Array(right_buffer);
 
         // Copy emscripten memory to JS
         for (var i = 0; i < size; i++) {
-          // buffer_i8[i] = Module.HEAP8[buffer_loc + i];
-          // buffer_i8[i] = Module.HEAP8[buffer_loc + i];
-          // console.log(Module.HEAP8[buffer_loc + i]);
-          buffer_f32[i] = Module.HEAP16[(buffer_loc >> 1) + 2 * i + 1] / 32768;
+          left_buffer_f32[i] = Module.HEAP16[(buffer_loc >> 1) + 2 * i + 0] / 32768;
+          right_buffer_f32[i] = Module.HEAP16[(buffer_loc >> 1) + 2 * i + 1] / 32768;
         }
 
-        // console.log(buffer_f32);
-
-        processAudio(buffer_f32);
-
-        // processAudio(buffer_f32);
-        // var new_buffer = Module.HEAP8.subarray(buffer_loc, buffer_loc+size)
-
-        // var new_buffer = buffer_i8.subarray(0, size);
-        // processAudio(new Float32Array(new_buffer.buffer));
-
+        processAudio(buffer);
       }
 
       function convertMidi(name) {
