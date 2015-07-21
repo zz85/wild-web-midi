@@ -19,6 +19,8 @@ node make
 ```
 
 Updates
+- 21 July 2015 - Implementation of Circular Buffer Queue fixes clicks/pops/static with custom Web Audio Rendering
+- 19 July 2015 - switch to 44.1K rendering
 - 5 July 2015 - allows wave rendering and realtime web audio playback
 - 4 July 2015 - test openal and emterpreter support
 - 3 July 2015 - better memory usage (browser doesn't crash after repeated conversions!)
@@ -28,12 +30,12 @@ Updates
 
 TODO
 - Web Workers support
-- stream audio to Web Audio API
 - pass output through lame or other MP3 encoders for download
 - allow custom patches
 - selective download of patches (faster downloads)
 
 DONE
+- stream audio to Web Audio API
 - wav playback from browser
 - saving of generated wav from browser
 - allow opening of midis from browser

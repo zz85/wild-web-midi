@@ -1,5 +1,4 @@
 
-	var wildwebmidi = Module.cwrap('wildwebmidi', 'string', ['string', 'string']);
 
 	// return wildwebmidi;
 

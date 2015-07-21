@@ -538,7 +538,8 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
     // do_version();
 
     printf("Initializing Sound System\n");
-    if (wav_file[0] != '\0') {
+    int output_wav = wav_file[0] != '\0';
+    if (output_wav) {
         if (open_wav_output(wav_file) == -1) {
             printf("Cannot open wave");
             completeConversion(1);
@@ -608,13 +609,16 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
         memset(display_lyrics,' ',MAX_DISPLAY_LYRICS);
 
         while (1) {
-            int ret = EM_ASM_INT_V({
-                return circularBuffer.full();
-            });
 
-            if (ret) {
-                emscripten_sleep(sleep);
-                continue;
+            if (!output_wav) {
+                int buffer_full = EM_ASM_INT_V({
+                    return circularBuffer.full();
+                });
+
+                if (buffer_full) {
+                    emscripten_sleep(sleep);
+                    continue;
+                }
             }
 
             count_diff = wm_info->approx_total_samples
@@ -674,16 +678,17 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
             //     display_lyrics, modes, master_volume, pro_mins,
             //     pro_secs, perc_play, spinner[spinpoint++ % 4]);
 
-            EM_ASM_({
-                testing($0, $1);
-            }, output_buffer, res);
-
-
-            // if (send_output(output_buffer, res) < 0) {
-                /* driver prints an error message already. */
-                // printf("\r");
-                // goto end2;
-            // }
+            if (output_wav) {
+                if (send_output(output_buffer, res) < 0) {
+                    /* driver prints an error message already. */
+                    printf("\r");
+                    goto end2;
+                }
+            } else {
+                EM_ASM_({
+                    processAudio($0, $1);
+                }, output_buffer, res);
+            }
 
             // this converts to setTimeout and lets browser breath!
             if (sleep > -1) emscripten_sleep(sleep);
@@ -716,12 +721,6 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
 
     printf("ok \r\n");
     completeConversion(0);
-
-    // int x = EM_ASM_INT({
-    //     console.log('take these values and do something', $0);
-    //     // pass JS values back to C
-    //     return $0;
-    // }, some_c_values());
 
     return 0;
 }

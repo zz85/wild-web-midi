@@ -134,8 +134,8 @@
 
     <textarea id="output" rows="8"></textarea>
 
-    <i>Warning: converting huge midis can cause your browser to run out of memory. Some midis may have missing tracks due to missing instrument patches</i>
-
+    <i>Warning: converting huge midis to wave files may lock up your UI and can cause your browser to run out of memory. Use web audio to generate and stream music on the fly. Some midis may have missing tracks due to missing instrument patches</i>
+    <script src="web_audio_player.js"></script>
     <script type='text/javascript'>
       var statusElement = document.getElementById('status');
       var progressElement = document.getElementById('progress');
@@ -148,111 +148,16 @@
       var midiName = ''
       var convertionJob = null;
 
-      var SAMPLE_RATE = 44100;
-      var BUFFER = 4096; // buffer sample
-      var channels = 2;
-
-      // Create AudioContext and buffer source
-      var audioCtx = new AudioContext();
-      var source = audioCtx.createBufferSource();
-      var scriptNode = audioCtx.createScriptProcessor(BUFFER, 0 , channels);
-
-      circularBuffer = new CircularAudioBuffer();
-
-function CircularAudioBuffer() {
-  var BUFFERS = 24;
-  this.slots = BUFFERS;
-  this.buffers = new Array(BUFFERS);
-
-  this.used = 0;
-  this.filled = 0;
-
-  for (var i = 0; i < BUFFERS; i++) {
-    var buffer = audioCtx.createBuffer(channels, BUFFER, SAMPLE_RATE);
-    this.buffers[i] = buffer;
-  }
-}
-
-// filled / used buffers
-CircularAudioBuffer.prototype.filledBuffers = function() {
-  var fills = this.filled - this.used;
-  if (fills < 0) fills += this.slots;
-  // console.log('filledBuffers', fills);
-  return fills;
-}
-
-CircularAudioBuffer.prototype.full = function() {
-  return this.filledBuffers() >= this.slots - 1;
-}
-
-CircularAudioBuffer.prototype.prepare = function() {
-  if (this.full()) {
-    console.log('buffers full!!')
-    return
-  }
-  var buffer = this.buffers[this.filled++];
-  this.filled %= this.slots;
-  return buffer;
-}
-
-// next
-CircularAudioBuffer.prototype.use = function() {
-  if (!this.filledBuffers()) return
-  var buffer = this.buffers[this.used++];
-  this.used %= this.slots;
-  return buffer;
-}
-
-
-// Give the node a function to process audio events
-scriptNode.onaudioprocess = function(audioProcessingEvent) {
-
-  var generated = circularBuffer.use();
-
-  if (!generated) {
-    console.log('buffer under run!!')
-    return;
-  }
-
-  var outputBuffer = audioProcessingEvent.outputBuffer;
-  var offset = 0;
-  outputBuffer.copyToChannel(generated.getChannelData(0), 0, offset);
-  outputBuffer.copyToChannel(generated.getChannelData(1), 1, offset);
-}
-
-function startAudio() {
-  source.connect(scriptNode);
-  scriptNode.connect(audioCtx.destination);
-  source.start();
-}
-
-function processAudio() {
-
-}
-
-setInterval(function() {
-  console.log('audio queue', circularBuffer.filledBuffers());
-}, 5000);
-
-      var done;
-
-      function testing(buffer_loc, size) {
-        // if (done) return;
-        // done = true;
-        // console.log('testing');
-        // console.log('size', size)
-
+      function processAudio(buffer_loc, size) {
         buffer = circularBuffer.prepare();
         var left_buffer_f32 = buffer.getChannelData(0);
         var right_buffer_f32 = buffer.getChannelData(1);
 
-        // Copy emscripten memory to JS
+        // Copy emscripten memory (OpenAL stereo16 format) to JS
         for (var i = 0; i < size; i++) {
           left_buffer_f32[i] = Module.HEAP16[(buffer_loc >> 1) + 2 * i + 0] / 32768;
           right_buffer_f32[i] = Module.HEAP16[(buffer_loc >> 1) + 2 * i + 1] / 32768;
         }
-
-        processAudio(buffer);
       }
 
       function convertMidi(name) {
@@ -316,11 +221,17 @@ setInterval(function() {
       function convert() {
         if (convertionJob) {
           console.log('current midi is running...');
-          Module.setStatus('Conversion job still pending...');
+          Module.setStatus('Current job still running...');
           return;
         }
+
         spinnerElement.style.display = 'inline-block';
-        Module.setStatus('Converting...');
+        if (webaudioElement.checked) {
+
+        }
+        Module.setStatus(webaudioElement.checked ?
+          'Playing':
+          'Converting...');
 
         // add small delay so UI can update.
         setTimeout(runConversion, 200);
@@ -338,6 +249,7 @@ setInterval(function() {
         if (webaudioElement.checked) {
           convertionJob.targetPath = '';
           sleep = 20;
+          startAudio();
         }
 
         var method = 'async';
@@ -363,6 +275,8 @@ setInterval(function() {
       }
 
       function completeConversion(status) {
+        // TODO wait for remaining buffer to drain before disconnect audio
+        pauseAudio();
         console.log('complete conversion', status)
         var conversion_time = Date.now() - convertionJob.conversion_start;
         // console.timeEnd('conversion');
