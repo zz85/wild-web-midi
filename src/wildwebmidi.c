@@ -608,6 +608,15 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
         memset(display_lyrics,' ',MAX_DISPLAY_LYRICS);
 
         while (1) {
+            int ret = EM_ASM_INT_V({
+                return circularBuffer.full();
+            });
+
+            if (ret) {
+                emscripten_sleep(sleep);
+                continue;
+            }
+
             count_diff = wm_info->approx_total_samples
                         - wm_info->current_sample;
 

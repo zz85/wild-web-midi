@@ -152,26 +152,68 @@
       var BUFFER = 4096; // buffer sample
       var channels = 2;
 
-      var audio_queue = [];
-
       // Create AudioContext and buffer source
       var audioCtx = new AudioContext();
       var source = audioCtx.createBufferSource();
       var scriptNode = audioCtx.createScriptProcessor(BUFFER, 0 , channels);
 
-      console.log(scriptNode.bufferSize);
+      circularBuffer = new CircularAudioBuffer();
 
 function CircularAudioBuffer() {
-  // this.next();
+  var BUFFERS = 24;
+  this.slots = BUFFERS;
+  this.buffers = new Array(BUFFERS);
+
+  this.used = 0;
+  this.filled = 0;
+
+  for (var i = 0; i < BUFFERS; i++) {
+    var buffer = audioCtx.createBuffer(channels, BUFFER, SAMPLE_RATE);
+    this.buffers[i] = buffer;
+  }
 }
+
+// filled / used buffers
+CircularAudioBuffer.prototype.filledBuffers = function() {
+  var fills = this.filled - this.used;
+  if (fills < 0) fills += this.slots;
+  // console.log('filledBuffers', fills);
+  return fills;
+}
+
+CircularAudioBuffer.prototype.full = function() {
+  return this.filledBuffers() >= this.slots - 1;
+}
+
+CircularAudioBuffer.prototype.prepare = function() {
+  if (this.full()) {
+    console.log('buffers full!!')
+    return
+  }
+  var buffer = this.buffers[this.filled++];
+  this.filled %= this.slots;
+  return buffer;
+}
+
+// next
+CircularAudioBuffer.prototype.use = function() {
+  if (!this.filledBuffers()) return
+  var buffer = this.buffers[this.used++];
+  this.used %= this.slots;
+  return buffer;
+}
+
 
 // Give the node a function to process audio events
 scriptNode.onaudioprocess = function(audioProcessingEvent) {
-  if (!audio_queue.length) {
+
+  var generated = circularBuffer.use();
+
+  if (!generated) {
     console.log('buffer under run!!')
     return;
   }
-  var generated = audio_queue.shift();
+
   var outputBuffer = audioProcessingEvent.outputBuffer;
   var offset = 0;
   outputBuffer.copyToChannel(generated.getChannelData(0), 0, offset);
@@ -184,12 +226,12 @@ function startAudio() {
   source.start();
 }
 
-function processAudio(buffer) {
-  audio_queue.push(buffer);
+function processAudio() {
+
 }
 
 setInterval(function() {
-  console.log('audio queue', audio_queue.length);
+  console.log('audio queue', circularBuffer.filledBuffers());
 }, 5000);
 
       var done;
@@ -200,14 +242,9 @@ setInterval(function() {
         // console.log('testing');
         // console.log('size', size)
 
-        var buffer = audioCtx.createBuffer(channels, BUFFER, SAMPLE_RATE);
+        buffer = circularBuffer.prepare();
         var left_buffer_f32 = buffer.getChannelData(0);
         var right_buffer_f32 = buffer.getChannelData(1);
-
-        // var left_buffer = new ArrayBuffer(BUFFER * 4);
-        // var left_buffer_f32 = new Float32Array(left_buffer);
-        // var right_buffer = new ArrayBuffer(BUFFER * 4);
-        // var right_buffer_f32 = new Float32Array(right_buffer);
 
         // Copy emscripten memory to JS
         for (var i = 0; i < size; i++) {
@@ -300,7 +337,7 @@ setInterval(function() {
         var sleep = -1; // use -1 for a blocking loop which is the fastest actually.
         if (webaudioElement.checked) {
           convertionJob.targetPath = '';
-          sleep = 80;
+          sleep = 20;
         }
 
         var method = 'async';
