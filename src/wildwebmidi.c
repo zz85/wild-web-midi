@@ -545,11 +545,11 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
             completeConversion(1);
             return (1);
         }
-    } else if (open_audio_output() == -1) {
+    } /* else if (open_audio_output() == -1) {
         printf("Cannot audio output");
         completeConversion(1);
         return (1);
-    }
+    }*/
 
     libraryver = WildMidi_GetVersion();
     printf("Initializing libWildMidi %ld.%ld.%ld\n\n",

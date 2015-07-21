@@ -68,7 +68,7 @@ FLAGS += ' -s EMTERPRETIFY_WHITELIST="[\'_wildwebmidi\']" ';
 
 var INCLUDES = '';
 INCLUDES += '-Isrc ';
-INCLUDES += '-I/System/Library/Frameworks/OpenAL.framework/Headers ';
+// INCLUDES += '-I/System/Library/Frameworks/OpenAL.framework/Headers ';
 INCLUDES += '-Iwildmidi/include ';
 
 
