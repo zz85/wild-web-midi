@@ -3,7 +3,7 @@ Wild Web Midi
 
 Wild Web Midi is [@blurspline](http://twitter.com/blurspline) attempt to run a "wavetable" (sample based) software synthesizer in the browser in JavaScript.
 
-### Try [http://zz85.github.io/wild-web-midi/](Demo)
+### Try [Demo](http://zz85.github.io/wild-web-midi/)
 
 Currently this is archived by running emscripten on the WildMidi project, which uses Gravis Ultrasound patches. Instrument patches from [Freepats](http://freepats.zenvoid.org/) project is used for the demo.
 
