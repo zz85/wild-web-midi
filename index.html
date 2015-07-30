@@ -3,11 +3,11 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Wild Web Midi - Quality Midi to Wave convertor with JS</title>
+    <title>Wild Web Midi - Quality streaming Midi to Wave converter with JS </title>
     <style>
       body {
         font-family: arial;
-        margin: 10px;
+        margin: 20px;
         padding: none;
       }
 
@@ -82,11 +82,10 @@
     </style>
   </head>
   <body>
-    <h2>Wild Web Midi - quality midi rendering in your browser in javascript.</h2>
-
-    <h3>Check out <a href="https://github.com/zz85/wild-web-midi">project on github</a> | Follow <a href="https://twitter.com/blurspline">@blurspline</a> for updates</h3>
-
-    <h4>Powered by <a href="https://www.mindwerks.net/projects/wildmidi/">wildmidi</a>, <a href="https://kripken.github.io/emscripten-site">emscripten</a>, and <a href="http://freepats.zenvoid.org/freepats/">Gravis Ultrasound patches</a>.</h4>
+    <h2>Wild Web Midi</h2>
+    <div>
+      WildMidi is a a wavetable synthesizer that is rather plays and converts midi at pretty good quality. "WildWebMidi" is a port of that runs in your browser in javascript. Open a midi or pick a midi sample below.
+    </div>
 
     <div class="spinner" id='spinner'></div>
 
@@ -132,6 +131,8 @@
       font-size: 12px;
     }
 
+
+
     </style>
 
     <span>
@@ -147,9 +148,21 @@
     <span id="totaltime">0:00</span>
 
     </span>
+    <br/>
+
+    <div>
+      <input id="stop" type="button" onclick="stop()" value="Stop"></input>
+
+      <label><input type="checkbox" id="waveconversion" /> Run WAV Converter (instead of web audio playback)</label>
+    </div>
+
+    <div>
+      <button onclick="openFile()">Open Midi!</button>
+    </div>
 
     <br/>
-    <div><u>Play Examples</u><br/>
+
+    <div><u>Sample Midis</u><br/>
 
     <!-- &#x2B24; #8226 -->
     <i>Samples (<a href="https://archive.org/details/GravisUltrasoundMidiFiles">source</a>)</i>
@@ -167,19 +180,26 @@
     &#x25CF; <a href="#" onclick="return convertMidi('melodies_of_life.mid');">Melodies of life (7:32)</a>
     </div>
 
-    <button onclick="openFile()">Open Midi!</button>
-    <label><input type="checkbox" id="webaudio" checked /> Web Audio Playback (Real-time, uses less CPU and memory)</label>
-
     <div id="completed"></div>
 
-    <i>Warning: converting huge midis to wave files may lock up your UI and can cause your browser to run out of memory. Use web audio to generate and stream music on the fly. Some midis may have missing tracks due to missing instrument patches</i>
+    <br/>
+
+    <div>Got any suggestions or found any bug? Check out <a href="https://github.com/zz85/wild-web-midi">project on github</a> or follow <a href="https://twitter.com/blurspline">@blurspline</a> on twitter for updates
+    <br/><br/>
+
+    <i>Powered by <a href="https://www.mindwerks.net/projects/wildmidi/">wildmidi</a>, <a href="https://kripken.github.io/emscripten-site">emscripten</a>, and <a href="http://freepats.zenvoid.org/freepats/">Gravis Ultrasound patches</a>.</i>
+    </div>
+
+
+
+
     <script src="web_audio_player.js"></script>
     <script type='text/javascript'>
       var statusElement = document.getElementById('status');
       var progressElement = document.getElementById('progress');
       var spinnerElement = document.getElementById('spinner');
       var completedElement = document.getElementById('completed');
-      var webaudioElement = document.getElementById('webaudio');
+      var waveConversion = document.getElementById('waveconversion');
 
       var playerbar = document.getElementById('playerbar');
       var playerprogress = document.getElementById('playerprogress');
@@ -187,6 +207,7 @@
       var totaltime = document.getElementById('totaltime');
 
       var input, openCallback;
+      var webAudioMode;
 
       var midiName = ''
       var convertionJob = null;
@@ -209,13 +230,19 @@
         totalSamples = 0,
         seekSamples = ULONG_MAX,
         pauseAudioAfterDrainingBuffer = false,
-        signalStop = false
+        signalStop = 0,
+        callbackOnStop = null
         ;
 
       playerbar.addEventListener('mousedown', function(e) {
         var percent = e.offsetX / 500;
         seekSamples = percent * totalSamples | 0;
       });
+
+      function stop() {
+        circularBuffer.reset();
+        signalStop = 1;
+      }
 
       function updateProgress(current, total) {
         currentSamples = current;
@@ -227,7 +254,7 @@
       }
 
       function samplesToTime(at) {
-        var in_s = at / SAMPLE_RATE | 0;
+        var in_s = Math.ceil(at / SAMPLE_RATE);
         var s = in_s % 60;
         var min = in_s / 60 | 0;
         return min + ':' + (s === 0 ? '00' : s < 10 ? '0' + s : s);
@@ -293,6 +320,14 @@
       }
 
       function convert() {
+        webAudioMode = !waveConversion.checked;
+
+        if (webAudioMode && convertionJob) {
+          stop();
+          callbackOnStop = convert;
+          return;
+        }
+
         if (convertionJob) {
           console.log('current midi is running...');
           Module.setStatus('Current job still running...');
@@ -300,10 +335,8 @@
         }
 
         spinnerElement.style.display = 'inline-block';
-        if (webaudioElement.checked) {
 
-        }
-        Module.setStatus(webaudioElement.checked ?
+        Module.setStatus(webAudioMode ?
           'Playing':
           'Converting...');
 
@@ -320,10 +353,11 @@
         };
 
         var sleep = -1; // use -1 for a blocking loop which is the fastest actually.
-        if (webaudioElement.checked) {
+        if (webAudioMode) {
           convertionJob.targetPath = '';
           sleep = 10;
-          startAudio();
+          circularBuffer.reset();
+          setTimeout(startAudio, 100);
         }
 
         var method = 'async';

@@ -509,6 +509,13 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
 
             // check buffers in streaming mode
             if (!output_wav) {
+                if (EM_ASM_INT_V({
+                    return signalStop;
+                })) {
+                    // stop
+                    goto end2;
+                }
+
                 // support seaking
                 unsigned long int seek = EM_ASM_INT_V({
                     if (seekSamples < ULONG_MAX) {

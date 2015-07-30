@@ -65,7 +65,9 @@ var audioCtx = new AudioContext();
 var source = audioCtx.createBufferSource();
 var scriptNode = audioCtx.createScriptProcessor(BUFFER, 0, channels);
 
-var circularBuffer = new CircularAudioBuffer();
+var circularBuffer = new CircularAudioBuffer(4);
+
+var emptyBuffer = audioCtx.createBuffer(channels, BUFFER, SAMPLE_RATE);
 
 scriptNode.onaudioprocess = onAudioProcess;
 source.connect(scriptNode);
@@ -87,11 +89,14 @@ function onAudioProcess(audioProcessingEvent) {
 		// wait for remaining buffer to drain before disconnect audio
 		pauseAudio();
 		pauseAudioAfterDrainingBuffer = false;
+		signalStop = 0;
+		if (callbackOnStop) callbackOnStop();
+		callbackOnStop = null;
 		return;
 	}
 	if (!generated) {
 		console.log('buffer under run!!')
-		return;
+		generated = emptyBuffer;
 	}
 
 	var outputBuffer = audioProcessingEvent.outputBuffer;

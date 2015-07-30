@@ -19,3 +19,11 @@
  * - completeConversion(status)
  *
  */
+
+/*
+ // Signals
+
+ - pauseAudioAfterDrainingBuffer
+ - seekSamples
+ - signalStop
+*/
