@@ -394,9 +394,7 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
     void *midi_ptr;
     uint8_t master_volume = 255;
     int8_t *output_buffer;
-    uint32_t perc_play;
-    uint32_t pro_mins;
-    uint32_t pro_secs;
+
     uint32_t apr_mins;
     uint32_t apr_secs;
     char modes[5];
@@ -407,8 +405,7 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
     uint8_t *test_data;
     uint8_t test_bank = 0;
     uint8_t test_patch = 0;
-    static char spinner[] = "|/-\\";
-    static int spinpoint = 0;
+
     unsigned long int seek_to_sample;
     int inpause = 0;
     char * ret_err = NULL;
@@ -523,14 +520,7 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
 
             if (inpause) {
                 wm_info = WildMidi_GetInfo(midi_ptr);
-                perc_play = (wm_info->current_sample * 100)
-                            / wm_info->approx_total_samples;
-                pro_mins = wm_info->current_sample / (rate * 60);
-                pro_secs = (wm_info->current_sample % (rate * 60)) / rate;
-                fprintf(stderr,
-                        "%s [%s] [%3i] [%2um %2us Processed] [%2u%%] P  \r",
-                        display_lyrics, modes, master_volume, pro_mins,
-                        pro_secs, perc_play);
+
                 msleep(5);
                 continue;
             }
@@ -541,6 +531,9 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
                 break;
 
             wm_info = WildMidi_GetInfo(midi_ptr);
+
+            /*
+            // TODO Support Lyrics
             lyric = WildMidi_GetLyric(midi_ptr);
 
             memcpy(lyrics, &lyrics[1], MAX_LYRIC_CHAR - 1);
@@ -559,16 +552,14 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
 
             memcpy(display_lyrics,lyrics,MAX_DISPLAY_LYRICS);
             display_lyrics[MAX_DISPLAY_LYRICS] = '\0';
+            */
 
-            perc_play = (wm_info->current_sample * 100)
-                        / wm_info->approx_total_samples;
-            pro_mins = wm_info->current_sample / (rate * 60);
-            pro_secs = (wm_info->current_sample % (rate * 60)) / rate;
-            // comment to prevent flooding console
-            // fprintf(stderr,
-            //     "%s [%s] [%3i] [%2um %2us Processed] [%2u%%] %c  \r",
-            //     display_lyrics, modes, master_volume, pro_mins,
-            //     pro_secs, perc_play, spinner[spinpoint++ % 4]);
+
+            // Update progress
+            EM_ASM_({
+                updateProgress($0, $1, $2);
+            }, wm_info->current_sample, wm_info->approx_total_samples, wm_info->total_midi_time);
+            // wm_info->mixer_options
 
             if (output_wav) {
                 if (send_output(output_buffer, res) < 0) {

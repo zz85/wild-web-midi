@@ -41,7 +41,7 @@ var DEFINES = '';
 
 var FLAGS = OPTIMIZE_FLAGS;
 
-var MEM = 64 * 1024 * 1024; // 64MB
+var MEM = 48 * 1024 * 1024; // 64MB
 FLAGS += ' -s TOTAL_MEMORY=' + MEM + ' ';
 
 

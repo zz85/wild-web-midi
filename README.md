@@ -29,6 +29,7 @@ Updates
 - 30 June 2015 - compiled to JS with emscripten to allow running in node.js and browser
 
 TODO
+- Stop / Slider
 - Web Workers support
 - pass output through lame or other MP3 encoders for download
 - allow custom patches
