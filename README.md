@@ -19,6 +19,7 @@ node make
 ```
 
 Updates
+- 31 July 2015 - Allow seeking in streaming web audio mode
 - 21 July 2015 - Implementation of Circular Buffer Queue fixes clicks/pops/static with custom Web Audio Rendering
 - 19 July 2015 - switch to 44.1K rendering
 - 5 July 2015 - allows wave rendering and realtime web audio playback
@@ -29,13 +30,14 @@ Updates
 - 30 June 2015 - compiled to JS with emscripten to allow running in node.js and browser
 
 TODO
-- Stop / Slider
+- Allow music stop controls
 - Web Workers support
 - pass output through lame or other MP3 encoders for download
 - allow custom patches
 - selective download of patches (faster downloads)
 
 DONE
+- Slider to fast seek music
 - stream audio to Web Audio API
 - wav playback from browser
 - saving of generated wav from browser

@@ -73,20 +73,8 @@
         margin-right: 20px;
       }
 
-      #output {
-        width: 100%;
-        height: 200px;
-        margin: 0 auto;
-        margin-top: 10px;
-        display: block;
-        background-color: black;
-        color: white;
-        font-family: 'Lucida Console', Monaco, monospace;
-        outline: none;
-      }
-
       button {
-        font-size: 28px;
+        font-size: 14px;
         padding: 10px;
         margin: 10px;
         cursor: pointer;
@@ -100,6 +88,15 @@
 
     <h4>Powered by <a href="https://www.mindwerks.net/projects/wildmidi/">wildmidi</a>, <a href="https://kripken.github.io/emscripten-site">emscripten</a>, and <a href="http://freepats.zenvoid.org/freepats/">Gravis Ultrasound patches</a>.</h4>
 
+    <div class="spinner" id='spinner'></div>
+
+    <div class="emscripten" id="status">Downloading...</div>
+
+    <div class="emscripten">
+      <progress value="0" max="100" id="progress" hidden=1></progress>
+    </div>
+
+    <br/>
 
     <style>
     #playerbar {
@@ -112,7 +109,7 @@
     }
 
     #playerbar:hover {
-      height: 8px;
+      height: 4px;
       transition: height 0.05s ease-out;
     }
 
@@ -126,14 +123,6 @@
 
     <div id="playerbar">
       <div id="playerprogress"></div>
-    </div>
-
-    <div class="spinner" id='spinner'></div>
-
-    <div class="emscripten" id="status">Downloading...</div>
-
-    <div class="emscripten">
-      <progress value="0" max="100" id="progress" hidden=1></progress>
     </div>
 
     <br/>
@@ -160,8 +149,6 @@
 
     <div id="completed"></div>
 
-    <textarea id="output" rows="8"></textarea>
-
     <i>Warning: converting huge midis to wave files may lock up your UI and can cause your browser to run out of memory. Use web audio to generate and stream music on the fly. Some midis may have missing tracks due to missing instrument patches</i>
     <script src="web_audio_player.js"></script>
     <script type='text/javascript'>
@@ -170,6 +157,9 @@
       var spinnerElement = document.getElementById('spinner');
       var completedElement = document.getElementById('completed');
       var webaudioElement = document.getElementById('webaudio');
+
+      var playerbar = document.getElementById('playerbar');
+      var playerprogress = document.getElementById('playerprogress');
 
       var input, openCallback;
 
@@ -188,7 +178,21 @@
         }
       }
 
+      var ULONG_MAX = 4294967295;
+      var
+        currentSamples = 0,
+        seekSamples = 4294967295,
+        pauseAudioAfterDrainingBuffer = false,
+        totalSamples = 0;
+
+      playerbar.addEventListener('mousedown', function(e) {
+        var percent = e.offsetX / 500;
+        seekSamples = percent * totalSamples | 0;
+      });
+
       function updateProgress(current, total) {
+        currentSamples = current;
+        totalSamples = total;
         playerprogress.style.width = (current / total * 100) + '%';
         // console.log('t', current, total);
       }
@@ -281,7 +285,7 @@
         var sleep = -1; // use -1 for a blocking loop which is the fastest actually.
         if (webaudioElement.checked) {
           convertionJob.targetPath = '';
-          sleep = 20;
+          sleep = 10;
           startAudio();
         }
 
@@ -308,8 +312,7 @@
       }
 
       function completeConversion(status) {
-        // TODO wait for remaining buffer to drain before disconnect audio
-        pauseAudio();
+        pauseAudioAfterDrainingBuffer = true;
         console.log('complete conversion', status)
         var conversion_time = Date.now() - convertionJob.conversion_start;
         // console.timeEnd('conversion');
@@ -353,15 +356,9 @@
         preRun: [],
         postRun: [],
         print: (function() {
-          var element = document.getElementById('output');
-          if (element) element.value = ''; // clear browser cache
           return function(text) {
             if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
             console.log(text);
-            if (element) {
-              element.value += text + "\n";
-              element.scrollTop = element.scrollHeight; // focus on bottom
-            }
           };
         })(),
         printErr: function(text) {

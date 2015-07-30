@@ -83,6 +83,12 @@ function pauseAudio() {
 function onAudioProcess(audioProcessingEvent) {
 	var generated = circularBuffer.use();
 
+	if (!generated && pauseAudioAfterDrainingBuffer) {
+		// wait for remaining buffer to drain before disconnect audio
+		pauseAudio();
+		pauseAudioAfterDrainingBuffer = false;
+		return;
+	}
 	if (!generated) {
 		console.log('buffer under run!!')
 		return;

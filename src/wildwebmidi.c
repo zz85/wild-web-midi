@@ -376,6 +376,15 @@ static void do_version(void) {
 
 static char *config_file;
 
+
+static int send_output_to_js(int8_t *output_data, int output_size) {
+    EM_ASM_({
+        processAudio($0, $1);
+    }, output_data, output_size);
+    return 0;
+}
+
+
 int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
 
     #ifdef NODEJS
@@ -392,14 +401,13 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
     int option_index = 0;
     uint16_t mixer_options = 0;
     void *midi_ptr;
-    uint8_t master_volume = 255;
+    uint8_t master_volume = 127;
     int8_t *output_buffer;
 
     uint32_t apr_mins;
     uint32_t apr_secs;
-    char modes[5];
     uint32_t count_diff;
-    uint8_t ch;
+
     uint8_t test_midi = 0;
     uint8_t test_count = 0;
     uint8_t *test_data;
@@ -438,24 +446,21 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
         printf("Cannot audio output");
         completeConversion(1);
         return (1);
-    }*/
+    }*/ else {
+        send_output = send_output_to_js;
+    }
 
     libraryver = WildMidi_GetVersion();
     printf("Initializing libWildMidi %ld.%ld.%ld\n\n",
                         (libraryver>>16) & 255,
                         (libraryver>> 8) & 255,
                         (libraryver    ) & 255);
+
     if (WildMidi_Init(config_file, rate, mixer_options) == -1) {
         printf("Cannot WildMidi_Init");
         completeConversion(1);
         return (1);
     }
-
-    // printf(" +  Volume up        e  Better resampling    n  Next Midi\n");
-    // printf(" -  Volume down      l  Log volume           q  Quit\n");
-    // printf(" ,  1sec Seek Back   r  Reverb               .  1sec Seek Forward\n");
-    // printf(" m  save as midi     p  Pause On/Off\n\n");
-
     output_buffer = malloc(16384);
     if (output_buffer == NULL) {
         fprintf(stderr, "Not enough memory, exiting\n");
@@ -485,11 +490,8 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
         apr_mins = wm_info->approx_total_samples / (rate * 60);
         apr_secs = (wm_info->approx_total_samples % (rate * 60)) / rate;
         mixer_options = wm_info->mixer_options;
-        modes[0] = (mixer_options & WM_MO_LOG_VOLUME)? 'l' : ' ';
-        modes[1] = (mixer_options & WM_MO_REVERB)? 'r' : ' ';
-        modes[2] = (mixer_options & WM_MO_ENHANCED_RESAMPLING)? 'e' : ' ';
-        modes[3] = ' ';
-        modes[4] = '\0';
+
+        WildMidi_SetOption(midi_ptr, (WM_MO_REVERB | WM_MO_ENHANCED_RESAMPLING), (WM_MO_REVERB | WM_MO_ENHANCED_RESAMPLING));
 
         printf("\r\n[Duration of midi approx %2um %2us Total]\r\n", apr_mins, apr_secs);
         fprintf(stderr, "\r");
@@ -498,25 +500,39 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
         memset(display_lyrics,' ',MAX_DISPLAY_LYRICS);
 
         while (1) {
-
-            if (!output_wav) {
-                int buffer_full = EM_ASM_INT_V({
-                    return circularBuffer.full();
-                });
-
-                if (buffer_full) {
-                    emscripten_sleep(sleep);
-                    continue;
-                }
-            }
-
+            // exit loop when samples are finished
             count_diff = wm_info->approx_total_samples
                         - wm_info->current_sample;
 
             if (count_diff == 0)
                 break;
 
-            ch = 0;
+            // check buffers in streaming mode
+            if (!output_wav) {
+                // support seaking
+                unsigned long int seek = EM_ASM_INT_V({
+                    if (seekSamples < ULONG_MAX) {
+                        var tmp = seekSamples;
+                        seekSamples = ULONG_MAX;
+                        circularBuffer.reset();
+                        return tmp;
+                    }
+                    return ULONG_MAX;
+                });
+
+                if (seek < 4294967295) {
+                    WildMidi_FastSeek(midi_ptr, &seek);
+                }
+
+                int buffer_full = EM_ASM_INT_V({
+                    return circularBuffer.full();
+                });
+
+                if (buffer_full) {
+                    msleep(sleep);
+                    continue;
+                }
+            }
 
             if (inpause) {
                 wm_info = WildMidi_GetInfo(midi_ptr);
@@ -561,21 +577,17 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
             }, wm_info->current_sample, wm_info->approx_total_samples, wm_info->total_midi_time);
             // wm_info->mixer_options
 
-            if (output_wav) {
-                if (send_output(output_buffer, res) < 0) {
-                    /* driver prints an error message already. */
-                    printf("\r");
-                    goto end2;
-                }
-            } else {
-                EM_ASM_({
-                    processAudio($0, $1);
-                }, output_buffer, res);
+
+            if (send_output(output_buffer, res) < 0) {
+                /* driver prints an error message already. */
+                printf("\r");
+                goto end2;
             }
 
+
             // this converts to setTimeout and lets browser breath!
-            if (sleep > -1) emscripten_sleep(sleep);
-            // msleep(5);
+            if (sleep > -1) msleep(sleep);
+
             // end while
         }
 
@@ -586,7 +598,7 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
             fprintf(stderr, "OOPS: failed closing midi handle!\r\n%s\r\n",ret_err);
         }
         memset(output_buffer, 0, 16384);
-        send_output(output_buffer, 16384);
+        // send_output(output_buffer, 16384);
     // }
     // end1:
     // memset(output_buffer, 0, 16384);
@@ -614,20 +626,9 @@ static void completeConversion(int status) {
     );
 }
 
-// static int msleep(unsigned long milisec) {
-//     emscripten_sleep(milisec);
-//     return 1;
-// }
 
 /* helper / replacement functions: */
-
 static int msleep(unsigned long milisec) {
-    struct timespec req = { 0, 0 };
-    time_t sec = (int) (milisec / 1000);
-    milisec = milisec - (sec * 1000);
-    req.tv_sec = sec;
-    req.tv_nsec = milisec * 1000000L;
-    while (nanosleep(&req, &req) == -1)
-        continue;
-    return (1);
+    emscripten_sleep(milisec);
+    return 1;
 }

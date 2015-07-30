@@ -41,7 +41,7 @@ var DEFINES = '';
 
 var FLAGS = OPTIMIZE_FLAGS;
 
-var MEM = 48 * 1024 * 1024; // 64MB
+var MEM = 64 * 1024 * 1024; // 64MB
 FLAGS += ' -s TOTAL_MEMORY=' + MEM + ' ';
 
 
@@ -60,7 +60,7 @@ FLAGS += ' -s EMTERPRETIFY_WHITELIST="[\'_wildwebmidi\']" ';
 
 /* DEBUG FLAGS */
 // var DEBUG_FLAGS = '-g'; FLAGS += DEBUG_FLAGS;
-// FLAGS += ' -s ASSERTIONS=1 '
+// FLAGS += ' -s ASSERTIONS=2 '
 // FLAGS += ' --profiling-funcs '
 // FLAGS += ' -s EMTERPRETIFY_ADVISE=1 '
 // FLAGS += ' -s ALLOW_MEMORY_GROWTH=1';
