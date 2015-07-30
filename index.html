@@ -237,6 +237,10 @@
       playerbar.addEventListener('mousedown', function(e) {
         var percent = e.offsetX / 500;
         seekSamples = percent * totalSamples | 0;
+
+        if (webAudioMode && !convertionJob) {
+          convertMidi(midiName)
+        }
       });
 
       function stop() {
