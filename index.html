@@ -106,6 +106,7 @@
       background: #ccc;
       cursor: pointer;
       transition: height 0.4s ease-in;
+      display: inline-block;
     }
 
     #playerbar:hover {
@@ -119,11 +120,33 @@
       width: 0;
       height: 100%;
     }
+
+    #playingtime {
+      position: absolute;
+      font-size: 12px;
+    }
+
+    #totaltime {
+      position: absolute;
+      left: 500px;
+      font-size: 12px;
+    }
+
     </style>
 
-    <div id="playerbar">
+    <span>
+
+
+
+    <span id="playerbar">
       <div id="playerprogress"></div>
-    </div>
+    </span>
+
+    <span id="playingtime">0:00</span>
+
+    <span id="totaltime">0:00</span>
+
+    </span>
 
     <br/>
     <div><u>Play Examples</u><br/>
@@ -160,6 +183,8 @@
 
       var playerbar = document.getElementById('playerbar');
       var playerprogress = document.getElementById('playerprogress');
+      var playingtime = document.getElementById('playingtime');
+      var totaltime = document.getElementById('totaltime');
 
       var input, openCallback;
 
@@ -181,9 +206,11 @@
       var ULONG_MAX = 4294967295;
       var
         currentSamples = 0,
-        seekSamples = 4294967295,
+        totalSamples = 0,
+        seekSamples = ULONG_MAX,
         pauseAudioAfterDrainingBuffer = false,
-        totalSamples = 0;
+        signalStop = false
+        ;
 
       playerbar.addEventListener('mousedown', function(e) {
         var percent = e.offsetX / 500;
@@ -194,7 +221,17 @@
         currentSamples = current;
         totalSamples = total;
         playerprogress.style.width = (current / total * 100) + '%';
+        playingtime.innerHTML = samplesToTime(current);
+        totaltime.innerHTML = samplesToTime(total);
         // console.log('t', current, total);
+      }
+
+      function samplesToTime(at) {
+        var in_s = at / SAMPLE_RATE | 0;
+        var s = in_s % 60;
+        var min = in_s / 60 | 0;
+        return min + ':' + (s === 0 ? '00' : s < 10 ? '0' + s : s);
+
       }
 
       function convertMidi(name) {
