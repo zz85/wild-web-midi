@@ -100,6 +100,34 @@
 
     <h4>Powered by <a href="https://www.mindwerks.net/projects/wildmidi/">wildmidi</a>, <a href="https://kripken.github.io/emscripten-site">emscripten</a>, and <a href="http://freepats.zenvoid.org/freepats/">Gravis Ultrasound patches</a>.</h4>
 
+
+    <style>
+    #playerbar {
+      position: absolute;;
+      height: 2px;
+      width: 500px;
+      background: #ccc;
+      cursor: pointer;
+      transition: height 0.4s ease-in;
+    }
+
+    #playerbar:hover {
+      height: 8px;
+      transition: height 0.05s ease-out;
+    }
+
+    #playerprogress {
+      margin: 0;
+      background: lime;
+      width: 0;
+      height: 100%;
+    }
+    </style>
+
+    <div id="playerbar">
+      <div id="playerprogress"></div>
+    </div>
+
     <div class="spinner" id='spinner'></div>
 
     <div class="emscripten" id="status">Downloading...</div>
@@ -161,7 +189,8 @@
       }
 
       function updateProgress(current, total) {
-        console.log('t', current, total);
+        playerprogress.style.width = (current / total * 100) + '%';
+        // console.log('t', current, total);
       }
 
       function convertMidi(name) {
