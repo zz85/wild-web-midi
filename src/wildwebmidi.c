@@ -491,6 +491,8 @@ int wildwebmidi(char* midi_file, char* wav_file, int sleep) {
         apr_secs = (wm_info->approx_total_samples % (rate * 60)) / rate;
         mixer_options = wm_info->mixer_options;
 
+        // WildMidi_SetOption(midi_ptr, (WM_MO_ENHANCED_RESAMPLING), (WM_MO_ENHANCED_RESAMPLING));
+        // WildMidi_SetOption(midi_ptr, (WM_MO_REVERB), (WM_MO_REVERB));
         WildMidi_SetOption(midi_ptr, (WM_MO_REVERB | WM_MO_ENHANCED_RESAMPLING), (WM_MO_REVERB | WM_MO_ENHANCED_RESAMPLING));
 
         printf("\r\n[Duration of midi approx %2um %2us Total]\r\n", apr_mins, apr_secs);

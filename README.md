@@ -19,7 +19,7 @@ node make
 ```
 
 Updates
-- 31 July 2015 - Allow seeking in streaming web audio mode, improved player controls
+- 31 July 2015 - Allow seeking in streaming web audio mode, improved player controls, added reverb and resampling
 - 21 July 2015 - Implementation of Circular Buffer Queue fixes clicks/pops/static with custom Web Audio Rendering
 - 19 July 2015 - switch to 44.1K rendering
 - 5 July 2015 - allows wave rendering and realtime web audio playback

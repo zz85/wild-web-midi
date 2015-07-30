@@ -59,7 +59,7 @@ FLAGS += ' -s EMTERPRETIFY_ASYNC=1 ';
 FLAGS += ' -s EMTERPRETIFY_WHITELIST="[\'_wildwebmidi\']" ';
 
 /* DEBUG FLAGS */
-// var DEBUG_FLAGS = '-g'; FLAGS += DEBUG_FLAGS;
+// var DEBUG_FLAGS = ' -g '; FLAGS += DEBUG_FLAGS;
 // FLAGS += ' -s ASSERTIONS=2 '
 // FLAGS += ' --profiling-funcs '
 // FLAGS += ' -s EMTERPRETIFY_ADVISE=1 '

@@ -157,14 +157,18 @@
     </div>
 
     <div>
-      <button onclick="openFile()">Open Midi!</button>
-    </div>
+      <button onclick="openFile()" id="drop_zone">Open Midi! (or Drag Files here)</button>
 
+      <i>or</i> <select id="playlist">
+      <option value="">Select a song</option>
+    </select>
+
+
+    </div>
     <br/>
 
-    <div><u>Sample Midis</u><br/>
-
-    <!-- &#x2B24; #8226 -->
+    <!--
+    &#x2B24; #8226
     <i>Samples (<a href="https://archive.org/details/GravisUltrasoundMidiFiles">source</a>)</i>
     &#x25CF; <a href="#" onclick="return convertMidi('TOCATTA.MID');">Tocatta (2:14)</a>
     &#x25CF; <a href="#" onclick="return convertMidi('ENTERTNR.MID');">Entertainer (1:32)</a>
@@ -179,6 +183,7 @@
     &#x25CF; <a href="#" onclick="return convertMidi('prelude.mid');">Prelude (4:29)</a>
     &#x25CF; <a href="#" onclick="return convertMidi('melodies_of_life.mid');">Melodies of life (7:32)</a>
     </div>
+    -->
 
     <div id="completed"></div>
 
@@ -188,10 +193,11 @@
     <br/><br/>
 
     <i>Powered by <a href="https://www.mindwerks.net/projects/wildmidi/">wildmidi</a>, <a href="https://kripken.github.io/emscripten-site">emscripten</a>, and <a href="http://freepats.zenvoid.org/freepats/">Gravis Ultrasound patches</a>.</i>
+
+    <i>
+      p.s. Only loading a piano instrument bank for now to reduce page loading time (2MB!). will add side loading for more instrument patches later
+    </i>
     </div>
-
-
-
 
     <script src="web_audio_player.js"></script>
     <script type='text/javascript'>
@@ -205,8 +211,35 @@
       var playerprogress = document.getElementById('playerprogress');
       var playingtime = document.getElementById('playingtime');
       var totaltime = document.getElementById('totaltime');
+      var playlist = document.getElementById('playlist');
 
-      var input, openCallback;
+      var SONGS = {
+        'Debussy - Clair de lune': 'deb_clai.mid',
+        'Final Fantasy 3 - Chocobo': 'ff3chocobo.mid',
+        'Chopin - Etude Op.10 No.4': 'etude_10_4_(c)finley.mid',
+        'Chopin - Fantasy Impromptu': 'chpn_op66.mid',
+        'Lizst - Etude No. 3 "La Campanella"': 'liz_et3.mid',
+        'Tocatta': 'TOCATTA.MID',
+        'Entertainer': 'ENTERTNR.MID',
+        'Striving': 'STRIVING.MID',
+        'Super Mario Bros Overworld Theme': 'Super_Mario_Bros_-_Overworld_Theme_by_BlueSCD.mid',
+        'Final Fantasy 9 - Prelude': 'prelude.mid',
+        'Final Fantasy 9 - Melodies of life': 'melodies_of_life.mid'
+      };
+
+      for (var s in SONGS) {
+        var option = document.createElement('option');
+        option.innerHTML = s;
+        option.value = SONGS[s];
+        playlist.appendChild(option);
+      }
+
+      playlist.onchange = function() {
+        if (this.value) convertMidi(this.value);
+      }
+
+
+      var input;
       var webAudioMode;
 
       var midiName = ''
@@ -273,16 +306,38 @@
 
       // File Open code adapted from "mrdoobapproves" project
       function openFile() {
-        openAs(function(file, data) {
-          midiName = file.name;
-          console.log('open ', midiName);
-          FS.writeFile('/freepats/' + midiName, data, { encoding: 'binary' });
-          convert();
-        }, document.body);
+        openAs(document.body);
       }
 
+      function onFileOpen(file, data) {
+        midiName = file.name;
+        console.log('open ', midiName);
+        FS.writeFile('/freepats/' + midiName, data, { encoding: 'binary' });
+        convert();
+      }
+
+        //   function handleFileSelect(evt) {
+  //   evt.stopPropagation();
+  //   evt.preventDefault();
+  //   var files = evt.dataTransfer.files; // FileList object.
+
+  //   // files is a FileList of File objects. List some properties.
+  //   var output = [];
+  //   for (var i = 0, f; f = files[i]; i++) {
+  //     output.push('<li><strong>', escape(f.name), '</strong> (', f.type || 'n/a', ') - ',
+  //                 f.size, ' bytes, last modified: ',
+  //                 f.lastModifiedDate ? f.lastModifiedDate.toLocaleDateString() : 'n/a',
+  //                 '</li>');
+  //   }
+  //   document.getElementById('list').innerHTML = '<ul>' + output.join('') + '</ul>';
+  // }
+
       function handleFileSelect(evt) {
-        var files = evt.target.files; // FileList object
+        console.log('handleFileSelect', evt)
+        evt.stopPropagation();
+        evt.preventDefault();
+var files = evt.dataTransfer ? evt.dataTransfer.files : evt.target.files;
+        // var files = evt.target.files; // FileList object
         var f = files[ 0 ]; // TODO: handle multiple midi files in future
         if (!f) return;
 
@@ -296,15 +351,13 @@
         reader.onload = function(e) {
           var arrayBuffer = e.target.result;
           var byteArray = new Uint8Array(arrayBuffer);
-          openCallback(f, byteArray);
+          onFileOpen(f, byteArray);
         };
         reader.readAsArrayBuffer(f);
-        input.value = '';
+        if (input) input.value = '';
       }
 
-      function openAs(callback, target) {
-        openCallback = callback;
-
+      function openAs(target) {
         if (!input) {
           input = document.createElement('input');
           input.style.display = 'none';
@@ -480,6 +533,21 @@
         };
       };
     </script>
+     <script>
+
+
+  function handleDragOver(evt) {
+    evt.stopPropagation();
+    evt.preventDefault();
+    evt.dataTransfer.dropEffect = 'copy'; // Explicitly show this is a copy.
+  }
+
+  // Setup the dnd listeners.
+    var dropZone = document.getElementById('drop_zone');
+  dropZone.addEventListener('dragover', handleDragOver, false);
+  dropZone.addEventListener('drop', handleFileSelect, false);
+  </script>
+
     <script async type="text/javascript" src="wildwebmidi.js"></script>
   </body>
 </html>
