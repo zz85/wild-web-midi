@@ -1,7 +1,7 @@
 /*
  * Circular Web Audio Buffer Queue
  */
-function CircularAudioBuffer(slots) {
+function CircularAudioBuffer(slots, audioCtx) {
 	slots = slots || 24; // number of buffers
 	this.slots = slots;
 	this.buffers = new Array(slots);
@@ -61,17 +61,26 @@ var BUFFER = 4096; // buffer sample
 var channels = 2;
 
 // Create AudioContext and buffer source
-var audioCtx = new AudioContext();
-var source = audioCtx.createBufferSource();
-var scriptNode = audioCtx.createScriptProcessor(BUFFER, 0, channels);
+var audioCtx;
+var source;
+var scriptNode;
+var circularBuffer;
+var emptyBuffer;
+var audioIsInitted = false;
 
-var circularBuffer = new CircularAudioBuffer(4);
+function initAudio() {
+    audioCtx = new window.AudioContext();
+    scriptNode = audioCtx.createScriptProcessor(BUFFER, 0, channels);
+    scriptNode.onaudioprocess = onAudioProcess;
 
-var emptyBuffer = audioCtx.createBuffer(channels, BUFFER, SAMPLE_RATE);
+    source = audioCtx.createBufferSource();
+    circularBuffer = new CircularAudioBuffer(4, audioCtx);
+    emptyBuffer = audioCtx.createBuffer(channels, BUFFER, SAMPLE_RATE);
 
-scriptNode.onaudioprocess = onAudioProcess;
-source.connect(scriptNode);
-source.start();
+    source.connect(scriptNode);
+    source.start(0);
+}
+
 
 function startAudio() {
 	scriptNode.connect(audioCtx.destination);
