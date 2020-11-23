@@ -19,6 +19,7 @@ node make
 ```
 
 Updates
+- 22 October 2020 - Fix AudioContext creation for autoplay policy in Chrome >= 71
 - 31 July 2015 - Allow seeking in streaming web audio mode, improved player controls, added reverb and resampling
 - 21 July 2015 - Implementation of Circular Buffer Queue fixes clicks/pops/static with custom Web Audio Rendering
 - 19 July 2015 - switch to 44.1K rendering

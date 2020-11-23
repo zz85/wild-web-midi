@@ -402,6 +402,7 @@ var files = evt.dataTransfer ? evt.dataTransfer.files : evt.target.files;
       }
 
       function runConversion() {
+        if(!audioIsInitted){initAudio();}
         convertionJob = {
           sourceMidi: 'freepats/' + midiName,
           targetWav: midiName.replace(/\.midi?$/i, '.wav'),
